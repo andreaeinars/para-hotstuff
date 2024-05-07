@@ -1,15 +1,11 @@
 #ifndef HOSTPORT_H
 #define HOSTPORT_H
 
-
 #include <string>
-
 #include "types.h"
 #include "KeysFun.h"
 
-
 typedef std::string HOST;
-
 
 class NodeInfo {
  private:

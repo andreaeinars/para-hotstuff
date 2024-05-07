@@ -6,7 +6,6 @@
 
 #include "TrustedCh.h"
 
-
 TrustedCh::TrustedCh() {
   this->lockh  = JBlock().hash(); // the genesis block
   this->lockv  = 0;
@@ -29,7 +28,6 @@ TrustedCh::TrustedCh(PID id, KEY priv, unsigned int q) {
   this->qsize  = q;
 }
 
-
 // increments the (view,phase) pair
 void TrustedCh::increment() {
   if (this->phase == PH1_PREPARE) {
@@ -39,7 +37,6 @@ void TrustedCh::increment() {
     this->view++;
   }
 }
-
 
 Just TrustedCh::sign(Hash h1, Hash h2, View v2) {
   RData rdata(h1,this->view,h2,v2,this->phase);
@@ -51,16 +48,13 @@ Just TrustedCh::sign(Hash h1, Hash h2, View v2) {
   return just;
 }
 
-
 Just TrustedCh::TEEsign() {
   return sign(Hash(false),this->preph,this->prepv);
 }
 
-
 bool verify(Stats &stats, PID id, Nodes nodes, Just just) {
   return just.getSigns().verify(stats,id,nodes,just.getRData().toString());
 }
-
 
 Just TrustedCh::TEEprepare(Stats &stats, Nodes nodes, JBlock block, JBlock block0, JBlock block1) {
   Just just = block.getJust();
@@ -102,6 +96,5 @@ Just TrustedCh::TEEprepare(Stats &stats, Nodes nodes, JBlock block, JBlock block
                            << KNRM << std::endl; }
   }
 
-  // otherwise we return the dummy justification
-  return Just();
+  return Just(); // otherwise we return the dummy justification
 }

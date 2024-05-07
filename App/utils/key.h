@@ -9,7 +9,6 @@
 #include "config.h"
 #include "types.h"
 
-
 // Switch between different schemes:
 // - KK_NO       --- no signatures
 // - KK_RSA4096  --- RSA_4096 signatures

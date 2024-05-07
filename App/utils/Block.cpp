@@ -4,9 +4,7 @@
 #include <string>
 #include <cstring>
 
-
 #include "Block.h"
-
 
 void Block::serialize(salticidae::DataStream &data) const {
   data << this->set << this->prevHash << this->size;
@@ -14,7 +12,6 @@ void Block::serialize(salticidae::DataStream &data) const {
     data << this->transactions[i];
   }
 }
-
 
 void Block::unserialize(salticidae::DataStream &data) {
   data >> this->set >> this->prevHash >> this->size;
@@ -30,7 +27,6 @@ std::string Block::transactions2string() {
   }
   return s;
 }
-
 
 std::string Block::toString() {
   std::string text = std::to_string(this->set)
@@ -51,7 +47,6 @@ std::string Block::prettyPrint() {
           + ",{" + text + "}]");
 }
 
-
 Hash Block::hash() {
   unsigned char h[SHA256_DIGEST_LENGTH];
   std::string text = toString();
@@ -63,7 +58,6 @@ Hash Block::hash() {
   return Hash(h);
 }
 
-
 // checks whether this block extends the argument
 bool Block::extends(Hash h) {
   return (this->prevHash == h);
@@ -72,7 +66,6 @@ bool Block::extends(Hash h) {
 bool Block::isDummy() { return !this->set; }
 unsigned int Block::getSize() { return this->size; }
 Transaction *Block::getTransactions() { return this->transactions; }
-
 
 Block::Block(bool b) {
   this->prevHash=Hash();
@@ -83,11 +76,6 @@ Block::Block() {
   this->prevHash=Hash();
   this->set=true;
 }
-
-/*Block::Block(Hash prevHash) {
-  this->prevHash=prevHash;
-  this->set=true;
-}*/
 
 Block::Block(Hash prevHash, unsigned int size, Transaction transactions[MAX_NUM_TRANSACTIONS]) {
   this->set=true;

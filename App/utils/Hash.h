@@ -1,15 +1,11 @@
 #ifndef HASH_H
 #define HASH_H
 
-
 #include "config.h"
 #include "types.h"
-
 #include <openssl/sha.h>
 #include <string>
-
 #include "salticidae/stream.h"
-
 
 class Hash {
  private:

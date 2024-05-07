@@ -1,9 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-
 #include "params.h"
-
 
 // debug switches
 #define DEBUG   true
@@ -19,17 +17,12 @@
 // to print client messages
 #define DEBUGC  true
 
-
 #define NO_SOCKET          -1
 #define CONF_FILE_SIZE     250
 #define MAXLINE            256
 #define RSA_NUM_BITS4k     4096
 #define RSA_NUM_BITS2k     2048
 #define MAX_SIZE_PAYLOAD   4096 // TODO: change that to something sensible
-
-//#define SOCK_KIND SOCK_STREAM // TCP
-//#define SOCK_KIND SOCK_DGRAM  // UDP
-
 
 // ----------------------------------------
 // Colors

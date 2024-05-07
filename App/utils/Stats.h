@@ -1,12 +1,10 @@
 #ifndef STATS_H
 #define STATS_H
 
-
 #include <chrono>
 #include <string>
 #include <map>
 #include <set>
-
 #include "types.h"
 
 using Time = std::chrono::time_point<std::chrono::steady_clock>;

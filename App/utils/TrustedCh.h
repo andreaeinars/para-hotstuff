@@ -1,10 +1,8 @@
 #ifndef TRUSTEDCH_H
 #define TRUSTEDCH_H
 
-
 #include "Hash.h"
 #include "JBlock.h"
-
 
 class TrustedCh {
 

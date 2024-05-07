@@ -1,14 +1,11 @@
 #ifndef RDATA_H
 #define RDATA_H
 
-
 #include "config.h"
 #include "types.h"
 #include "Hash.h"
 
-
 #include "salticidae/stream.h"
-
 
 // Round Data
 class RData {

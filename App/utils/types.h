@@ -5,8 +5,6 @@
 
 enum unit { tt };
 
-typedef uint8_t HEADER;
-
 #define HDR_NEWVIEW     0x00
 #define HDR_PREPARE     0x01
 #define HDR_PREPARE_LDR 0x02

@@ -6,13 +6,10 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/rand.h>
-
 #include "types.h"
 #include "config.h"
 #include "key.h"
-
 #include "salticidae/stream.h"
-
 
 class Sign {
 

@@ -8,9 +8,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "Message.h"
-//#include "Nodes.h"
-
+#include "utils/Message.h"
 
 // Salticidae related stuff
 #include "salticidae/msg.h"
@@ -43,7 +41,6 @@ unsigned int numNodes = 0;
 unsigned int numFaults = 1;
 unsigned int constFactor = 3;         // default value: by default, there are 3f+1 nodes
 CID cid = 0;                          // id of this client
-//unsigned int numInstancesPerNode = 1; // by default clients send only one transaction per node
 unsigned int numInstances = 1;        // by default clients wait for only 1 instance
 std::map<TID,TransInfo> transactions; // current transactions
 std::map<TID,double> execTrans;       // set of executed transaction ids
@@ -56,7 +53,6 @@ unsigned int inst = 0; // instance number when repeating experiments
 std::string statsThroughputLatency;
 std::string debugThroughputLatency;
 
-
 // In the chained versions, as we start with node 1 as the leader, we also send the first transaction to 1
 #if defined(CHAINED_BASELINE) || defined(CHAINED_CHEAP_AND_QUICK) || defined(CHAINED_CHEAP_AND_QUICK_DEBUG)
 bool skipFirst = true;
@@ -64,11 +60,9 @@ bool skipFirst = true;
 bool skipFirst = false;
 #endif
 
-
 std::string cnfo() {
   return ("[C" + std::to_string(cid) + "]");
 }
-
 
 void send_start_to_all() {
   // TODO: sign
@@ -133,8 +127,6 @@ void executed(TID tid) {
   }
 }
 
-
-
 void handle_reply(MsgReply &&msg, const MsgNet::conn_t &conn) {
   TID tid = msg.reply;
   //std::cout << cnfo() << "received reply for transaction " << tid << KNRM << std::endl;
@@ -144,9 +136,7 @@ void handle_reply(MsgReply &&msg, const MsgNet::conn_t &conn) {
     if (numReplies == qsize) {
       if (DEBUGC) { std::cout << cnfo() << "received all " << numReplies << " replies for transaction " << tid << KNRM << std::endl; }
       executed(tid);
-
       if (DEBUGC) { std::cout << cnfo() << "received:" << execTrans.size() << "/" << numInstances << KNRM << std::endl; }
-      //if (execTrans.size()%1000 == 0) { std::cout << cnfo() << "received:" << execTrans.size() << "/" << numInstances << KNRM << std::endl; }
       if (execTrans.size() == numInstances) {
         if (DEBUG0) { std::cout << cnfo() << "received replies for all " << numInstances << " transactions...stopping..." << KNRM << std::endl; }
         printStats();
@@ -154,13 +144,11 @@ void handle_reply(MsgReply &&msg, const MsgNet::conn_t &conn) {
         // (1) waiting for the sending thread to finish
         // (2) and by stopping the ec
         send_thread.join();
-        //send_stop_to_all();
         ec.stop();
       }
     }
   }
 }
-
 
 void addNewTransaction(Transaction trans) {
   // 0 answers so far
@@ -186,7 +174,6 @@ unsigned int send_transactions_to_all(TID transid) {
     if (DEBUGC) { std::cout << cnfo() << "sending transaction(" << transid << ") to " << p.first << KNRM << std::endl; }
     MsgTransaction msg = mkTransaction(transid);
     net->send_msg(msg, p.second);
-    //std::thread thSend(send_one_trans,msg,p.second);
     transid++;
   }
   return transid;
@@ -203,7 +190,6 @@ void send_transactions() {
         if (DEBUGC) { std::cout << cnfo() << "sending transaction(" << transid << ") to " << p.first << KNRM << std::endl; }
         MsgTransaction msg = mkTransaction(transid);
         net->send_msg(msg, p.second);
-        //std::thread thSend(send_one_trans,msg,p.second);
         usleep(sleepTime);
         if (DEBUGC) { std::cout << cnfo() << "slept for " << sleepTime << "; transid=" << transid << KNRM << std::endl; }
         transid++;
@@ -212,7 +198,6 @@ void send_transactions() {
     }
   }
 }
-
 
 int main(int argc, char const *argv[]) {
   KeysFun kf;
@@ -234,7 +219,6 @@ int main(int argc, char const *argv[]) {
 
   if (argc > 6) { sscanf(argv[6], "%d", &inst); }
   std::cout << cnfo() << "instance=" << inst << KNRM << std::endl;
-
 
   numNodes = (constFactor*numFaults)+1;
   qsize = numNodes-numFaults;
@@ -269,7 +253,6 @@ int main(int argc, char const *argv[]) {
     nodes.setPub(i,pub);
   }
 
-
   long unsigned int size = std::max({sizeof(MsgTransaction), sizeof(MsgReply), sizeof(MsgStart)});
 
   #if defined(BASIC_CHEAP) || defined(BASIC_BASELINE)
@@ -283,12 +266,9 @@ int main(int argc, char const *argv[]) {
 
   MsgNet::Config config;
   config.max_msg_size(size);
-  //config.ping_period(2);
   net = std::make_unique<MsgNet>(ec,config);
 
-  //salticidae::NetAddr addr = salticidae::NetAddr("127.0.0.1:" + std::to_string(8760 + numNodes));
   net->start();
-  //net.listen(addr);
 
   std::cout << cnfo() << "connecting..." << KNRM << std::endl;
   for (size_t j = 0; j < numNodes; j++) {
