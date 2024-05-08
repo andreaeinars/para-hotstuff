@@ -3,3 +3,4 @@ salticidae/
 .vscode/
 test.py
 config
+__pycache__/

@@ -16,7 +16,6 @@
 #include "salticidae/network.h"
 #include "salticidae/stream.h"
 
-
 using MsgNet    = salticidae::MsgNetwork<uint8_t>;
 using Clock     = std::chrono::time_point<std::chrono::steady_clock>;
 using TransInfo = std::tuple<unsigned int,Clock,Transaction>; // int: number of replies

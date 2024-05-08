@@ -13,41 +13,9 @@ std::string Handler::nfo() { return "[" + std::to_string(this->myid) + "]"; }
 TrustedFun tf;
 TrustedCh tp; // 'p' for pipelined
 
-// loads a Hash from [h]
-Hash getHash(hash_t *h) {
-  return Hash(h->set,h->hash);
-}
-
-RData getRData (rdata_t *d) {
-  Hash   proph = getHash(&(d->proph));
-  View   propv = d->propv;
-  Hash   justh = getHash(&(d->justh));
-  View   justv = d->justv;
-  Phase1 phase = (Phase1)d->phase;
-  RData  data(proph,propv,justh,justv,phase);
-  return data;
-}
-
-// loads a Just from [j]
-Just getJust(just_t *j) {
-  RData rdata = getRData(&(j->rdata));
-  Sign  a[MAX_NUM_SIGNATURES];
-  for (int i = 0; i < MAX_NUM_SIGNATURES; i++) {
-    a[i]=Sign(j->signs.signs[i].set,j->signs.signs[i].signer,j->signs.signs[i].sign);
-  }
-  Signs signs(j->signs.size,a);
-  return Just((bool)j->set,rdata,signs);
-}
-
-void Handler::startNewViewOnTimeout() {
-  // TODO: start a new-view
-#if defined(BASIC_BASELINE)
-  if (DEBUG0) std::cout << KMAG << nfo() << "starting a new view" << KNRM << std::endl;
-  startNewView();
-#elif defined (CHAINED_BASELINE)
-  startNewViewCh();
-#endif
-}
+// ------------------------------------------------------------
+// Message Opcodes
+// ------------------------------------------------------------
 
 //#if defined(BASIC_BASELINE)
 const uint8_t MsgNewView::opcode;
@@ -194,11 +162,32 @@ pnet(pec,pconf), cnet(cec,cconf) {
   pec.dispatch();
 }
 
-void Handler::printNowTime(std::string msg) {
-  auto now = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(now - startView).count();
-  double etime = (stats.getTotalViewTime(0).tot + time) / (1000*1000);
-  std::cout << KBLU << nfo() << msg << " @ " << etime << KNRM << std::endl;
+// ------------------------------------------------------------
+// Common Protocol Functions
+// ------------------------------------------------------------
+
+Hash getHash(hash_t *h) { // loads a Hash from [h]
+  return Hash(h->set,h->hash);
+}
+
+RData getRData (rdata_t *d) {
+  Hash   proph = getHash(&(d->proph));
+  View   propv = d->propv;
+  Hash   justh = getHash(&(d->justh));
+  View   justv = d->justv;
+  Phase1 phase = (Phase1)d->phase;
+  RData  data(proph,propv,justh,justv,phase);
+  return data;
+}
+
+Just getJust(just_t *j) { // loads a Just from [j]
+  RData rdata = getRData(&(j->rdata));
+  Sign  a[MAX_NUM_SIGNATURES];
+  for (int i = 0; i < MAX_NUM_SIGNATURES; i++) {
+    a[i]=Sign(j->signs.signs[i].set,j->signs.signs[i].signer,j->signs.signs[i].sign);
+  }
+  Signs signs(j->signs.size,a);
+  return Just((bool)j->set,rdata,signs);
 }
 
 void Handler::printClientInfo() {
@@ -213,261 +202,18 @@ void Handler::printClientInfo() {
   }
 }
 
-unsigned int Handler::getLeaderOf(View v) { return (v % this->total); }
-
-unsigned int Handler::getCurrentLeader() { return getLeaderOf(this->view); }
-
-bool Handler::amLeaderOf(View v) { return (this->myid == getLeaderOf(v)); }
-
-bool Handler::amCurrentLeader() { return (this->myid == getCurrentLeader()); }
-
-std::string recipients2string(Peers recipients) {
-  std::string s;
-  for (Peers::iterator it = recipients.begin(); it != recipients.end(); ++it) {
-    Peer peer = *it;
-    s += std::to_string(std::get<0>(peer)) + ";";
-  }
-  return s;
+void Handler::printNowTime(std::string msg) {
+  auto now = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(now - startView).count();
+  double etime = (stats.getTotalViewTime(0).tot + time) / (1000*1000);
+  std::cout << KBLU << nfo() << msg << " @ " << etime << KNRM << std::endl;
 }
 
-Peers Handler::remove_from_peers(PID id) {
-  Peers ret;
-  for (Peers::iterator it = this->peers.begin(); it != this->peers.end(); ++it) {
-    Peer peer = *it;
-    if (id != std::get<0>(peer)) { ret.push_back(peer); }
-  }
-  return ret;
-}
-
-Peers Handler::keep_from_peers(PID id) {
-  Peers ret;
-  for (Peers::iterator it = this->peers.begin(); it != this->peers.end(); ++it) {
-    Peer peer = *it;
-    if (id == std::get<0>(peer)) { ret.push_back(peer); }
-  }
-  return ret;
-}
-
-std::vector<salticidae::PeerId> getPeerids(Peers recipients) {
-  std::vector<salticidae::PeerId> ret;
-  for (Peers::iterator it = recipients.begin(); it != recipients.end(); ++it) {
-    Peer peer = *it;
-    ret.push_back(std::get<1>(peer));
-  }
-  return ret;
-}
-
-void Handler::sendMsgNewView(MsgNewView msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-}
-
-void Handler::sendMsgPrepare(MsgPrepare msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-  if (DEBUGT) printNowTime("sending MsgPrepare");
-}
-
-void Handler::sendMsgLdrPrepare(MsgLdrPrepare msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending(" << sizeof(msg) << "-" << sizeof(MsgLdrPrepare) << "):" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-  if (DEBUGT) printNowTime("sending MsgLdrPrepare");
-}
-
-void Handler::sendMsgPreCommit(MsgPreCommit msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-  if (DEBUGT) printNowTime("sending MsgPreCommit");
-}
-
-void Handler::sendMsgCommit(MsgCommit msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-  if (DEBUGT) printNowTime("sending MsgCommit");
-}
-
-void Handler::sendMsgNewViewCh(MsgNewViewCh msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-}
-
-void Handler::sendMsgPrepareCh(MsgPrepareCh msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-  if (DEBUGT) printNowTime("sending MsgPrepareCh");
-}
-
-void Handler::sendMsgLdrPrepareCh(MsgLdrPrepareCh msg, Peers recipients) {
-  if (DEBUG1) std::cout << KBLU << nfo() << "sending(" << sizeof(msg) << "-" << sizeof(MsgLdrPrepareCh) << "):" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
-  if (DEBUGT) printNowTime("sending MsgLdrPrepareCh");
-}
-
-Just Handler::callTEEsign() {
-  auto start = std::chrono::steady_clock::now();
-  Just just = tf.TEEsign(stats);
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  stats.addTEEsign(time);
-  stats.addTEEtime(time);
-  return just;
-}
-
-Just Handler::callTEEprepare(Hash h, Just j) {
-  auto start = std::chrono::steady_clock::now();
-  Just just = tf.TEEprepare(stats,this->nodes,h,j);
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  stats.addTEEprepare(time);
-  stats.addTEEtime(time);
-  return just;
-}
-
-Just Handler::callTEEstore(Just j) {
-  auto start = std::chrono::steady_clock::now();
-  Just just = tf.TEEstore(stats,this->nodes,j);
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  stats.addTEEstore(time);
-  stats.addTEEtime(time);
-  return just;
-}
-
-Just Handler::callTEEsignCh() {
-  auto start = std::chrono::steady_clock::now();
-  Just just = tp.TEEsign();
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  stats.addTEEsign(time);
-  stats.addTEEtime(time);
-  return just;
-}
-
-Just Handler::callTEEprepareCh(JBlock block, JBlock block0, JBlock block1) {
-  auto start = std::chrono::steady_clock::now();
-  Just just = tp.TEEprepare(stats,this->nodes,block,block0,block1);
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  stats.addTEEprepare(time);
-  stats.addTEEtime(time);
-  return just;
-}
-
-// reset the timer, and record the current view
-void Handler::setTimer() {
-  this->timer.del();
-  this->timer.add(this->timeout);
-  this->timerView = this->view;
-}
-
-void Handler::getStarted() {
-  startTime = std::chrono::steady_clock::now();
-  startView = std::chrono::steady_clock::now();
-
-  PID leader = getCurrentLeader();
-  Peers recipients = keep_from_peers(leader);
-  PID nextLeader = getLeaderOf(this->view+1);
-  Peers nextRecipients = keep_from_peers(nextLeader);
-
-  #if defined(BASIC_BASELINE)
-    Just j = callTEEsign();
-    if (DEBUG1) std::cout << KBLU << nfo() << "initial just:" << j.prettyPrint() << KNRM << std::endl;
-    MsgNewView msg(j.getRData(),j.getSigns());
-    if (DEBUG1) std::cout << KBLU << nfo() << "starting with:" << msg.prettyPrint() << KNRM << std::endl;
-    if (amCurrentLeader()) { handleNewview(msg); }
-    else { sendMsgNewView(msg,recipients); } // Send new-view to the leader of the current view
-    if (DEBUG) std::cout << KBLU << nfo() << "sent new-view to leader(" << leader << ")" << KNRM << std::endl;
-  #elif defined(CHAINED_BASELINE)
-    // We start voting
-    Just j = callTEEsignCh();
-    if (DEBUG1) std::cout << KBLU << nfo() << "initial just:" << j.prettyPrint() << KNRM << std::endl;
-    MsgNewViewCh msg(j.getRData(),j.getSigns().get(0));
-    if (DEBUG1) std::cout << KBLU << nfo() << "starting with:" << msg.prettyPrint() << KNRM << std::endl;
-    this->view = 1; // The view starts at 1 here
-    this->jblocks[0] = JBlock(); // we store the genesis block at view 0
-    stats.startExecTime(0,std::chrono::steady_clock::now());
-    // We handle the message
-    if (amCurrentLeader()) { handleNewviewCh(msg); }
-    else {
-      sendMsgNewViewCh(msg,nextRecipients);
-      handleEarlierMessagesCh();
-    }
-    if (DEBUG) std::cout << KBLU << nfo() << "sent new-view to leader(" << nextLeader << ")" << KNRM << std::endl;
-  #endif
-}
-
-bool Handler::verifyTransaction(MsgTransaction msg) { return true; /*msg.verify(this->nodes);*/ }
-
-void Handler::handleEarlierMessages() {
-  // *** THIS IS FOR LATE NODES TO PRO-ACTIVELY PROCESS MESSAGES THEY HAVE ALREADY RECEIVED FOR THE NEW VIEW ***
-  // We now check whether we already have enough information to start the next view if we're the leader
-  if (amCurrentLeader()) {
-    Signs signsNV = this->log.getNewView(this->view,this->qsize);
-    if (signsNV.getSize() == this->qsize) { // we have enough new view messages to start the new view
-      prepare();
-    }
-  } else {
-    // First we check whether the view has already been locked
-    // (i.e., we received a pre-commit certificate from the leader),
-    // in which case we don't need to go through the previous steps.
-    Signs signsPc = (this->log).getPrecommit(this->view,this->qsize);
-    if (signsPc.getSize() == this->qsize) {
-      if (DEBUG1) std::cout << KMAG << nfo() << "catching up using pre-commit certificate" << KNRM << std::endl;
-      Just justPc = this->log.firstPrecommit(this->view);
-      callTEEsign();  // We skip the prepare phase (this is otherwise a TEEprepare):
-      callTEEsign(); // We skip the pre-commit phase (this is otherwise a TEEstore):
-      respondToPreCommitJust(justPc); // We store the pre-commit certificate
-      Signs signsCom = (this->log).getCommit(this->view,this->qsize);
-      if (signsCom.getSize() == this->qsize) {
-        Just justCom = this->log.firstCommit(this->view);
-        executeRData(justCom.getRData());
-      }
-    } else { // We don't have enough pre-commit signatures
-      // TODO: we could still have enough commit signatures, in which case we might want to skip to that phase
-      Signs signsPrep = (this->log).getPrepare(this->view,this->qsize);
-      if (signsPrep.getSize() == this->qsize) {
-        if (DEBUG1) std::cout << KMAG << nfo() << "catching up using prepare certificate" << KNRM << std::endl;
-        // TODO: If we're late, we currently store two prepare messages (in the prepare phase,
-        // the one from the leader with 1 sig; and in the pre-commit phase, the one with f+1 sigs.
-        Just justPrep = this->log.firstPrepare(this->view);
-        callTEEsign(); // We skip the prepare phase (this is otherwise a TEEprepare): 
-        respondToPrepareJust(justPrep); // We store the prepare certificate
-      } else {
-        MsgLdrPrepare msgProp = this->log.firstProposal(this->view);
-        if (msgProp.signs.getSize() == 1) { // If we've stored the leader's proposal
-          if (DEBUG1) std::cout << KMAG << nfo() << "catching up using leader proposal" << KNRM << std::endl;
-          Proposal prop = msgProp.prop;
-          respondToProposal(prop.getJust(),prop.getBlock());
-        }
-      }
-    }
-  }
-}
-
-// TODO: also trigger new-views when there is a timeout
-void Handler::startNewView() {
-  Just just = callTEEsign();
-  while (just.getRData().getPropv() <= this->view) { just = callTEEsign(); } // generate justifications until we can generate one for the next view
-  this->view++; // increment the view -> THE NODE HAS NOW MOVED TO THE NEW-VIEW
-  setTimer(); // We start the timer
-
-  // if the lastest justification we've generated is for what is now the current view (since we just incremented it)
-  // and round 0, then send a new-view message
-  if (just.getRData().getPropv() == this->view && just.getRData().getPhase() == PH1_NEWVIEW) {
-    MsgNewView msg(just.getRData(),just.getSigns());
-    if (amCurrentLeader()) {
-      handleEarlierMessages();
-      handleNewview(msg);
-    }
-    else {
-      PID leader = getCurrentLeader();
-      Peers recipients = keep_from_peers(leader);
-      sendMsgNewView(msg,recipients);
-      handleEarlierMessages();
-    }
-  } else {
-    // Something wrong happened
-  }
+bool Handler::timeToStop() {
+  bool b = this->maxViews > 0 && this->maxViews <= this->view+1;
+  if (DEBUG) { std::cout << KBLU << nfo() << "timeToStop=" << b << ";maxViews=" << this->maxViews << ";viewsWithoutNewTrans=" << this->viewsWithoutNewTrans << ";pending-transactions=" << this->transactions.size() << KNRM << std::endl; }
+  if (DEBUG1) { if (b) { std::cout << KBLU << nfo() << "maxViews=" << this->maxViews << ";viewsWithoutNewTrans=" << this->viewsWithoutNewTrans << ";pending-transactions=" << this->transactions.size() << KNRM << std::endl; } }
+  return b;
 }
 
 void Handler::recordStats() {
@@ -522,8 +268,131 @@ void Handler::recordStats() {
   if (DEBUG1) std::cout << KBLU << nfo() << "printing 'done' file: " << statsDone << KNRM << std::endl;
 }
 
-// send replies corresponding to 'hash'
-void Handler::replyTransactions(Transaction *transactions) {
+void Handler::setTimer() { // reset the timer, and record the current view
+  this->timer.del();
+  this->timer.add(this->timeout);
+  this->timerView = this->view;
+}
+
+unsigned int Handler::getLeaderOf(View v) { return (v % this->total); }
+
+unsigned int Handler::getCurrentLeader() { return getLeaderOf(this->view); }
+
+bool Handler::amLeaderOf(View v) { return (this->myid == getLeaderOf(v)); }
+
+bool Handler::amCurrentLeader() { return (this->myid == getCurrentLeader()); }
+
+void Handler::getStarted() {
+  startTime = std::chrono::steady_clock::now();
+  startView = std::chrono::steady_clock::now();
+
+  PID leader = getCurrentLeader();
+  Peers recipients = keep_from_peers(leader);
+  PID nextLeader = getLeaderOf(this->view+1);
+  Peers nextRecipients = keep_from_peers(nextLeader);
+
+  #if defined(BASIC_BASELINE)
+    Just j = callTEEsign();
+    if (DEBUG1) std::cout << KBLU << nfo() << "initial just:" << j.prettyPrint() << KNRM << std::endl;
+    MsgNewView msg(j.getRData(),j.getSigns());
+    if (DEBUG1) std::cout << KBLU << nfo() << "starting with:" << msg.prettyPrint() << KNRM << std::endl;
+    if (amCurrentLeader()) { handleNewview(msg); }
+    else { sendMsgNewView(msg,recipients); } // Send new-view to the leader of the current view
+    if (DEBUG) std::cout << KBLU << nfo() << "sent new-view to leader(" << leader << ")" << KNRM << std::endl;
+  #elif defined(CHAINED_BASELINE)
+    // We start voting
+    Just j = callTEEsignCh();
+    if (DEBUG1) std::cout << KBLU << nfo() << "initial just:" << j.prettyPrint() << KNRM << std::endl;
+    MsgNewViewCh msg(j.getRData(),j.getSigns().get(0));
+    if (DEBUG1) std::cout << KBLU << nfo() << "starting with:" << msg.prettyPrint() << KNRM << std::endl;
+    this->view = 1; // The view starts at 1 here
+    this->jblocks[0] = JBlock(); // we store the genesis block at view 0
+    stats.startExecTime(0,std::chrono::steady_clock::now());
+    // We handle the message
+    if (amCurrentLeader()) { handleNewviewCh(msg); }
+    else {
+      sendMsgNewViewCh(msg,nextRecipients);
+      handleEarlierMessagesCh();
+    }
+    if (DEBUG) std::cout << KBLU << nfo() << "sent new-view to leader(" << nextLeader << ")" << KNRM << std::endl;
+  #endif
+}
+
+void Handler::handle_transaction(MsgTransaction msg, const ClientNet::conn_t &conn) {
+  handleTransaction(msg);
+}
+
+void Handler::handle_start(MsgStart msg, const ClientNet::conn_t &conn) {
+  CID cid = msg.cid;
+
+  if (this->clients.find(cid) == this->clients.end()) {
+    (this->clients)[cid]=std::make_tuple(true,0,0,conn);
+  }
+
+  if (!this->started) {
+    this->started=true;
+    getStarted();
+  }
+}
+
+void Handler::startNewViewOnTimeout() {
+  // TODO: start a new-view
+#if defined(BASIC_BASELINE)
+  if (DEBUG0) std::cout << KMAG << nfo() << "starting a new view" << KNRM << std::endl;
+  startNewView();
+#elif defined (CHAINED_BASELINE)
+  startNewViewCh();
+#endif
+}
+
+bool Handler::verifyTransaction(MsgTransaction msg) { return true; /*msg.verify(this->nodes);*/ }
+
+std::string recipients2string(Peers recipients) {
+  std::string s;
+  for (Peers::iterator it = recipients.begin(); it != recipients.end(); ++it) {
+    Peer peer = *it;
+    s += std::to_string(std::get<0>(peer)) + ";";
+  }
+  return s;
+}
+
+Peers Handler::remove_from_peers(PID id) {
+  Peers ret;
+  for (Peers::iterator it = this->peers.begin(); it != this->peers.end(); ++it) {
+    Peer peer = *it;
+    if (id != std::get<0>(peer)) { ret.push_back(peer); }
+  }
+  return ret;
+}
+
+Peers Handler::keep_from_peers(PID id) {
+  Peers ret;
+  for (Peers::iterator it = this->peers.begin(); it != this->peers.end(); ++it) {
+    Peer peer = *it;
+    if (id == std::get<0>(peer)) { ret.push_back(peer); }
+  }
+  return ret;
+}
+
+std::vector<salticidae::PeerId> getPeerids(Peers recipients) {
+  std::vector<salticidae::PeerId> ret;
+  for (Peers::iterator it = recipients.begin(); it != recipients.end(); ++it) {
+    Peer peer = *it;
+    ret.push_back(std::get<1>(peer));
+  }
+  return ret;
+}
+
+bool Handler::Sverify(Signs signs, PID id, Nodes nodes, std::string s) {
+  bool b = signs.verify(stats, id, nodes, s);
+  return b;
+}
+
+bool Handler::verifyJust(Just just) {
+  return Sverify(just.getSigns(),this->myid,this->nodes,just.getRData().toString());
+}
+
+void Handler::replyTransactions(Transaction *transactions) { // send replies corresponding to 'hash'
   for (int i = 0; i < MAX_NUM_TRANSACTIONS; i++) {
     Transaction trans = transactions[i];
     CID cid = trans.getCid();
@@ -541,8 +410,7 @@ void Handler::replyTransactions(Transaction *transactions) {
   }
 }
 
-// send replies corresponding to 'hash'
-void Handler::replyHash(Hash hash) {
+void Handler::replyHash(Hash hash) { // send replies corresponding to 'hash'
   std::map<View,Block>::iterator it = this->blocks.find(this->view);
   if (it != this->blocks.end()) {
     Block block = (Block)it->second;
@@ -558,89 +426,39 @@ void Handler::replyHash(Hash hash) {
   }
 }
 
-bool Handler::timeToStop() {
-  bool b = this->maxViews > 0 && this->maxViews <= this->view+1;
-  if (DEBUG) { std::cout << KBLU << nfo() << "timeToStop=" << b << ";maxViews=" << this->maxViews << ";viewsWithoutNewTrans=" << this->viewsWithoutNewTrans << ";pending-transactions=" << this->transactions.size() << KNRM << std::endl; }
-  if (DEBUG1) { if (b) { std::cout << KBLU << nfo() << "maxViews=" << this->maxViews << ";viewsWithoutNewTrans=" << this->viewsWithoutNewTrans << ";pending-transactions=" << this->transactions.size() << KNRM << std::endl; } }
-  return b;
+// ------------------------------------------------------------
+// Basic HotStuff
+// ------------------------------------------------------------
+
+void Handler::sendMsgNewView(MsgNewView msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
 }
 
-void Handler::executeRData(RData rdata) {
-  auto endView = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(endView - startView).count();
-  startView = endView;
-  stats.incExecViews();
-  stats.addTotalViewTime(time);
-  if (this->transactions.empty()) { this->viewsWithoutNewTrans++; } else { this->viewsWithoutNewTrans = 0; }
-
-  // Execute
-  // TODO: We should wait until we received the block corresponding to the hash to execute
-  if (DEBUG0 && DEBUGE) std::cout << KRED << nfo() << "R-EXECUTE(" << this->view << "/" << this->maxViews << ":" << time << ")" << stats.toString() << KNRM << std::endl;
-  replyHash(rdata.getProph());
-
-  if (timeToStop()) {
-    recordStats();
-  } else {
-    startNewView();
-  }
+void Handler::sendMsgPrepare(MsgPrepare msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  if (DEBUGT) printNowTime("sending MsgPrepare");
 }
 
-// For leaders to generate a commit with f+1 signatures
-void Handler::initiateCommit(RData rdata) {
-  Signs signs = (this->log).getCommit(rdata.getPropv(),this->qsize);
-  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
-  if (signs.getSize() == this->qsize) {
-    MsgCommit msgCom(rdata,signs);
-    Peers recipients = remove_from_peers(this->myid);
-    sendMsgCommit(msgCom,recipients);
-    if (DEBUG) std::cout << KBLU << nfo() << "sent commit certificate to backups (" << msgCom.prettyPrint() << ")" << KNRM << std::endl;
-
-    executeRData(rdata); // We can now execute the block:
-  }
+void Handler::sendMsgLdrPrepare(MsgLdrPrepare msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending(" << sizeof(msg) << "-" << sizeof(MsgLdrPrepare) << "):" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  if (DEBUGT) printNowTime("sending MsgLdrPrepare");
 }
 
-// For leaders to generate a pre-commit with f+1 signatures
-void Handler::initiatePrecommit(RData rdata) {
-  Signs signs = (this->log).getPrecommit(rdata.getPropv(),this->qsize);
-  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
-  if (signs.getSize() == this->qsize) {
-    MsgPreCommit msgPc(rdata,signs);
-    Peers recipients = remove_from_peers(this->myid);
-    sendMsgPreCommit(msgPc,recipients);
-    if (DEBUG) std::cout << KBLU << nfo() << "sent pre-commit to backups (" << msgPc.prettyPrint() << ")" << KNRM << std::endl;
-
-    // The leader also stores the prepare message
-    Just justCom = callTEEstore(Just(rdata,signs));
-    MsgCommit msgCom(justCom.getRData(),justCom.getSigns());
-
-    // We store our own commit in the log
-    if (this->qsize <= this->log.storeCom(msgCom)) {
-      initiateCommit(justCom.getRData());
-    }
-  }
+void Handler::sendMsgPreCommit(MsgPreCommit msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  if (DEBUGT) printNowTime("sending MsgPreCommit");
 }
 
-// For leaders to forward prepare justifications to all nodes
-void Handler::initiatePrepare(RData rdata) {
-  Signs signs = (this->log).getPrepare(rdata.getPropv(),this->qsize);
-  if (DEBUG) std::cout << KBLU << nfo() << "prepare signatures: " << signs.prettyPrint() << KNRM << std::endl;
-  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
-  if (signs.getSize() == this->qsize) {
-    MsgPrepare msgPrep(rdata,signs);
-    Peers recipients = remove_from_peers(this->myid);
-    sendMsgPrepare(msgPrep,recipients);
-    if (DEBUG) std::cout << KBLU << nfo() << "sent prepare certificate to backups (" << msgPrep.prettyPrint() << ")" << KNRM << std::endl;
-
-    // The leader also stores the prepare message
-    Just justPc = callTEEstore(Just(rdata,signs));
-    MsgPreCommit msgPc(justPc.getRData(),justPc.getSigns());
-
-    // We store our own pre-commit in the log
-    if (this->qsize <= this->log.storePc(msgPc)) { 
-      initiatePrecommit(justPc.getRData());
-    }
-  }
+void Handler::sendMsgCommit(MsgCommit msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  if (DEBUGT) printNowTime("sending MsgCommit");
 }
+
 
 Block Handler::createNewBlock(Hash hash) {
   std::lock_guard<std::mutex> guard(mu_trans);
@@ -664,8 +482,8 @@ Block Handler::createNewBlock(Hash hash) {
   return Block(hash,size,trans);
 }
 
-// For leader to do begin a view (prepare phase)
-void Handler::prepare() {
+
+void Handler::prepare() { // For leader to do begin a view (prepare phase)
   auto start = std::chrono::steady_clock::now();
   // We first create a block that extends the highest prepared block
   Just justNV = this->log.findHighestNv(this->view);
@@ -702,10 +520,244 @@ void Handler::prepare() {
   stats.addTotalPrepTime(time);
 }
 
-// NEW-VIEW messages are received by leaders
-// Once a leader has received f+1 new-view messages, it creates a proposal out of the highest prepared block
-// and sends this proposal in a PREPARE message
+void Handler::initiatePrepare(RData rdata) { // For leaders to forward prepare justifications to all nodes
+  Signs signs = (this->log).getPrepare(rdata.getPropv(),this->qsize);
+  if (DEBUG) std::cout << KBLU << nfo() << "prepare signatures: " << signs.prettyPrint() << KNRM << std::endl;
+  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
+  if (signs.getSize() == this->qsize) {
+    MsgPrepare msgPrep(rdata,signs);
+    Peers recipients = remove_from_peers(this->myid);
+    sendMsgPrepare(msgPrep,recipients);
+    if (DEBUG) std::cout << KBLU << nfo() << "sent prepare certificate to backups (" << msgPrep.prettyPrint() << ")" << KNRM << std::endl;
+
+    // The leader also stores the prepare message
+    Just justPc = callTEEstore(Just(rdata,signs));
+    MsgPreCommit msgPc(justPc.getRData(),justPc.getSigns());
+
+    // We store our own pre-commit in the log
+    if (this->qsize <= this->log.storePc(msgPc)) { 
+      initiatePrecommit(justPc.getRData());
+    }
+  }
+}
+
+void Handler::initiatePrecommit(RData rdata) { // For leaders to generate a pre-commit with f+1 signatures
+  Signs signs = (this->log).getPrecommit(rdata.getPropv(),this->qsize);
+  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
+  if (signs.getSize() == this->qsize) {
+    MsgPreCommit msgPc(rdata,signs);
+    Peers recipients = remove_from_peers(this->myid);
+    sendMsgPreCommit(msgPc,recipients);
+    if (DEBUG) std::cout << KBLU << nfo() << "sent pre-commit to backups (" << msgPc.prettyPrint() << ")" << KNRM << std::endl;
+
+    // The leader also stores the prepare message
+    Just justCom = callTEEstore(Just(rdata,signs));
+    MsgCommit msgCom(justCom.getRData(),justCom.getSigns());
+
+    // We store our own commit in the log
+    if (this->qsize <= this->log.storeCom(msgCom)) {
+      initiateCommit(justCom.getRData());
+    }
+  }
+}
+
+void Handler::initiateCommit(RData rdata) { // For leaders to generate a commit with f+1 signatures
+  Signs signs = (this->log).getCommit(rdata.getPropv(),this->qsize);
+  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
+  if (signs.getSize() == this->qsize) {
+    MsgCommit msgCom(rdata,signs);
+    Peers recipients = remove_from_peers(this->myid);
+    sendMsgCommit(msgCom,recipients);
+    if (DEBUG) std::cout << KBLU << nfo() << "sent commit certificate to backups (" << msgCom.prettyPrint() << ")" << KNRM << std::endl;
+
+    executeRData(rdata); // We can now execute the block:
+  }
+}
+
+void Handler::respondToProposal(Just justNv, Block block) {
+  // We create our own justification for that block
+  Just newJustPrep = callTEEprepare(block.hash(),justNv);
+  if (newJustPrep.isSet()) {
+    if (DEBUG1) std::cout << KBLU << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
+    this->blocks[this->view]=block;
+    // We create a message out of that commitment, which we'll store in our log
+    MsgPrepare msgPrep(newJustPrep.getRData(),newJustPrep.getSigns());
+    Peers recipients = keep_from_peers(getCurrentLeader());
+    sendMsgPrepare(msgPrep,recipients);
+  } else {
+    if (DEBUG2) std::cout << KBLU << nfo() << "bad justification" << newJustPrep.prettyPrint() << KNRM << std::endl;
+  }
+}
+
+void Handler::respondToPrepareJust(Just justPrep) { // For backups to respond to prepare certificates received from the leader
+  Just justPc = callTEEstore(justPrep);
+  MsgPreCommit msgPc(justPc.getRData(),justPc.getSigns());
+  Peers recipients = keep_from_peers(getCurrentLeader());
+  sendMsgPreCommit(msgPc,recipients);
+  if (DEBUG) std::cout << KBLU << nfo() << "sent pre-commit (" << msgPc.prettyPrint() << ") to leader" << KNRM << std::endl;
+}
+
+void Handler::respondToPreCommitJust(Just justPc) { // For backups to respond to pre-commit certificates received from the leader
+  Just justCom = callTEEstore(justPc);
+  MsgCommit msgCom(justCom.getRData(),justCom.getSigns());
+  Peers recipients = keep_from_peers(getCurrentLeader());
+  sendMsgCommit(msgCom,recipients);
+  if (DEBUG) std::cout << KBLU << nfo() << "sent commit (" << msgCom.prettyPrint() << ") to leader" << KNRM << std::endl;
+}
+
+
+Just Handler::callTEEsign() {
+  auto start = std::chrono::steady_clock::now();
+  Just just = tf.TEEsign(stats);
+  auto end = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  stats.addTEEsign(time);
+  stats.addTEEtime(time);
+  return just;
+}
+
+Just Handler::callTEEprepare(Hash h, Just j) {
+  auto start = std::chrono::steady_clock::now();
+  Just just = tf.TEEprepare(stats,this->nodes,h,j);
+  auto end = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  stats.addTEEprepare(time);
+  stats.addTEEtime(time);
+  return just;
+}
+
+Just Handler::callTEEstore(Just j) {
+  auto start = std::chrono::steady_clock::now();
+  Just just = tf.TEEstore(stats,this->nodes,j);
+  auto end = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  stats.addTEEstore(time);
+  stats.addTEEtime(time);
+  return just;
+}
+
+
+void Handler::executeRData(RData rdata) {
+  auto endView = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(endView - startView).count();
+  startView = endView;
+  stats.incExecViews();
+  stats.addTotalViewTime(time);
+  if (this->transactions.empty()) { this->viewsWithoutNewTrans++; } else { this->viewsWithoutNewTrans = 0; }
+
+  // Execute
+  // TODO: We should wait until we received the block corresponding to the hash to execute
+  if (DEBUG0 && DEBUGE) std::cout << KRED << nfo() << "R-EXECUTE(" << this->view << "/" << this->maxViews << ":" << time << ")" << stats.toString() << KNRM << std::endl;
+  replyHash(rdata.getProph());
+
+  if (timeToStop()) {
+    recordStats();
+  } else {
+    startNewView();
+  }
+}
+
+void Handler::handleEarlierMessages() {
+  // *** THIS IS FOR LATE NODES TO PRO-ACTIVELY PROCESS MESSAGES THEY HAVE ALREADY RECEIVED FOR THE NEW VIEW ***
+  // We now check whether we already have enough information to start the next view if we're the leader
+  if (amCurrentLeader()) {
+    Signs signsNV = this->log.getNewView(this->view,this->qsize);
+    if (signsNV.getSize() == this->qsize) { // we have enough new view messages to start the new view
+      prepare();
+    }
+  } else {
+    // First we check whether the view has already been locked
+    // (i.e., we received a pre-commit certificate from the leader),
+    // in which case we don't need to go through the previous steps.
+    Signs signsPc = (this->log).getPrecommit(this->view,this->qsize);
+    if (signsPc.getSize() == this->qsize) {
+      if (DEBUG1) std::cout << KMAG << nfo() << "catching up using pre-commit certificate" << KNRM << std::endl;
+      Just justPc = this->log.firstPrecommit(this->view);
+      callTEEsign();  // We skip the prepare phase (this is otherwise a TEEprepare):
+      callTEEsign(); // We skip the pre-commit phase (this is otherwise a TEEstore):
+      respondToPreCommitJust(justPc); // We store the pre-commit certificate
+      Signs signsCom = (this->log).getCommit(this->view,this->qsize);
+      if (signsCom.getSize() == this->qsize) {
+        Just justCom = this->log.firstCommit(this->view);
+        executeRData(justCom.getRData());
+      }
+    } else { // We don't have enough pre-commit signatures
+      // TODO: we could still have enough commit signatures, in which case we might want to skip to that phase
+      Signs signsPrep = (this->log).getPrepare(this->view,this->qsize);
+      if (signsPrep.getSize() == this->qsize) {
+        if (DEBUG1) std::cout << KMAG << nfo() << "catching up using prepare certificate" << KNRM << std::endl;
+        // TODO: If we're late, we currently store two prepare messages (in the prepare phase,
+        // the one from the leader with 1 sig; and in the pre-commit phase, the one with f+1 sigs.
+        Just justPrep = this->log.firstPrepare(this->view);
+        callTEEsign(); // We skip the prepare phase (this is otherwise a TEEprepare): 
+        respondToPrepareJust(justPrep); // We store the prepare certificate
+      } else {
+        MsgLdrPrepare msgProp = this->log.firstProposal(this->view);
+        if (msgProp.signs.getSize() == 1) { // If we've stored the leader's proposal
+          if (DEBUG1) std::cout << KMAG << nfo() << "catching up using leader proposal" << KNRM << std::endl;
+          Proposal prop = msgProp.prop;
+          respondToProposal(prop.getJust(),prop.getBlock());
+        }
+      }
+    }
+  }
+}
+
+void Handler::startNewView() { // TODO: also trigger new-views when there is a timeout
+  Just just = callTEEsign();
+  while (just.getRData().getPropv() <= this->view) { just = callTEEsign(); } // generate justifications until we can generate one for the next view
+  this->view++; // increment the view -> THE NODE HAS NOW MOVED TO THE NEW-VIEW
+  setTimer(); // We start the timer
+
+  // if the lastest justification we've generated is for what is now the current view (since we just incremented it)
+  // and round 0, then send a new-view message
+  if (just.getRData().getPropv() == this->view && just.getRData().getPhase() == PH1_NEWVIEW) {
+    MsgNewView msg(just.getRData(),just.getSigns());
+    if (amCurrentLeader()) {
+      handleEarlierMessages();
+      handleNewview(msg);
+    }
+    else {
+      PID leader = getCurrentLeader();
+      Peers recipients = keep_from_peers(leader);
+      sendMsgNewView(msg,recipients);
+      handleEarlierMessages();
+    }
+  } else {
+    // Something wrong happened
+  }
+}
+
+void Handler::handleTransaction(MsgTransaction msg) {
+  std::lock_guard<std::mutex> guard(mu_trans);
+  auto start = std::chrono::steady_clock::now();
+  if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
+  if (verifyTransaction(msg)) {
+    Transaction trans = msg.trans;
+    CID cid = trans.getCid();
+    Clients::iterator it = this->clients.find(cid);
+    if (it != this->clients.end()) { // we found an entry for 'cid'
+      ClientNfo cnfo = (ClientNfo)(it->second);
+      bool running = std::get<0>(cnfo);
+      if (running) {
+        // We got a new transaction from a live client
+        if ((this->transactions).size() < (this->transactions).max_size()) {
+          if (DEBUG1) { std::cout << KBLU << nfo() << "pushing transaction:" << trans.prettyPrint() << KNRM << std::endl; }
+          (this->clients)[cid]=std::make_tuple(true,std::get<1>(cnfo)+1,std::get<2>(cnfo),std::get<3>(cnfo));
+          this->transactions.push_back(trans);
+        } else { if (DEBUG0) { std::cout << KMAG << nfo() << "too many transactions (" << (this->transactions).size() << "/" << (this->transactions).max_size() << "), transaction rejected from client: " << cid << KNRM << std::endl; } }
+      } else { if (DEBUG0) { std::cout << KMAG << nfo() << "transaction rejected from stopped client: " << cid << KNRM << std::endl; } }
+    } else { if (DEBUG0) { std::cout << KMAG << nfo() << "transaction rejected from unknown client: " << cid << KNRM << std::endl; } }
+  } else { if (DEBUG1) std::cout << KMAG << nfo() << "discarded:" << msg.prettyPrint() << KNRM << std::endl; }
+  auto end = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  stats.addTotalHandleTime(time);
+}
+
 void Handler::handleNewview(MsgNewView msg) {
+  // NEW-VIEW messages are received by leaders
+  // Once a leader has received f+1 new-view messages, it creates a proposal out of the highest prepared block
+  // and sends this proposal in a PREPARE message
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
   Hash   hashP = msg.rdata.getProph();
@@ -728,32 +780,7 @@ void Handler::handle_newview(MsgNewView msg, const PeerNet::conn_t &conn) {
   handleNewview(msg);
 }
 
-void Handler::respondToProposal(Just justNv, Block block) {
-  // We create our own justification for that block
-  Just newJustPrep = callTEEprepare(block.hash(),justNv);
-  if (newJustPrep.isSet()) {
-    if (DEBUG1) std::cout << KBLU << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
-    this->blocks[this->view]=block;
-    // We create a message out of that commitment, which we'll store in our log
-    MsgPrepare msgPrep(newJustPrep.getRData(),newJustPrep.getSigns());
-    Peers recipients = keep_from_peers(getCurrentLeader());
-    sendMsgPrepare(msgPrep,recipients);
-  } else {
-    if (DEBUG2) std::cout << KBLU << nfo() << "bad justification" << newJustPrep.prettyPrint() << KNRM << std::endl;
-  }
-}
-
-bool Handler::Sverify(Signs signs, PID id, Nodes nodes, std::string s) {
-  bool b = signs.verify(stats, id, nodes, s);
-  return b;
-}
-
-bool Handler::verifyJust(Just just) {
-  return Sverify(just.getSigns(),this->myid,this->nodes,just.getRData().toString());
-}
-
-// This is only for backups
-void Handler::handleLdrPrepare(MsgLdrPrepare msg) {
+void Handler::handleLdrPrepare(MsgLdrPrepare msg) { // This is only for backups
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
   Proposal prop = msg.prop;
@@ -787,17 +814,7 @@ void Handler::handle_ldrprepare(MsgLdrPrepare msg, const PeerNet::conn_t &conn) 
   handleLdrPrepare(msg);
 }
 
-// For backups to respond to prepare certificates received from the leader
-void Handler::respondToPrepareJust(Just justPrep) {
-  Just justPc = callTEEstore(justPrep);
-  MsgPreCommit msgPc(justPc.getRData(),justPc.getSigns());
-  Peers recipients = keep_from_peers(getCurrentLeader());
-  sendMsgPreCommit(msgPc,recipients);
-  if (DEBUG) std::cout << KBLU << nfo() << "sent pre-commit (" << msgPc.prettyPrint() << ") to leader" << KNRM << std::endl;
-}
-
-// This is for both for the leader and backups
-void Handler::handlePrepare(MsgPrepare msg) {
+void Handler::handlePrepare(MsgPrepare msg) { // This is for both for the leader and backups
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
   RData rdata = msg.rdata;
@@ -823,15 +840,6 @@ void Handler::handlePrepare(MsgPrepare msg) {
 
 void Handler::handle_prepare(MsgPrepare msg, const PeerNet::conn_t &conn) {
   handlePrepare(msg);
-}
-
-// For backups to respond to pre-commit certificates received from the leader
-void Handler::respondToPreCommitJust(Just justPc) {
-  Just justCom = callTEEstore(justPc);
-  MsgCommit msgCom(justCom.getRData(),justCom.getSigns());
-  Peers recipients = keep_from_peers(getCurrentLeader());
-  sendMsgCommit(msgCom,recipients);
-  if (DEBUG) std::cout << KBLU << nfo() << "sent commit (" << msgCom.prettyPrint() << ") to leader" << KNRM << std::endl;
 }
 
 void Handler::handlePrecommit(MsgPreCommit msg) {
@@ -906,56 +914,32 @@ void Handler::handle_commit(MsgCommit msg, const PeerNet::conn_t &conn) {
   handleCommit(msg);
 }
 
-void Handler::handleTransaction(MsgTransaction msg) {
-  std::lock_guard<std::mutex> guard(mu_trans);
-  auto start = std::chrono::steady_clock::now();
-  if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
-  if (verifyTransaction(msg)) {
-    Transaction trans = msg.trans;
-    CID cid = trans.getCid();
-    Clients::iterator it = this->clients.find(cid);
-    if (it != this->clients.end()) { // we found an entry for 'cid'
-      ClientNfo cnfo = (ClientNfo)(it->second);
-      bool running = std::get<0>(cnfo);
-      if (running) {
-        // We got a new transaction from a live client
-        if ((this->transactions).size() < (this->transactions).max_size()) {
-          if (DEBUG1) { std::cout << KBLU << nfo() << "pushing transaction:" << trans.prettyPrint() << KNRM << std::endl; }
-          (this->clients)[cid]=std::make_tuple(true,std::get<1>(cnfo)+1,std::get<2>(cnfo),std::get<3>(cnfo));
-          this->transactions.push_back(trans);
-        } else { if (DEBUG0) { std::cout << KMAG << nfo() << "too many transactions (" << (this->transactions).size() << "/" << (this->transactions).max_size() << "), transaction rejected from client: " << cid << KNRM << std::endl; } }
-      } else { if (DEBUG0) { std::cout << KMAG << nfo() << "transaction rejected from stopped client: " << cid << KNRM << std::endl; } }
-    } else { if (DEBUG0) { std::cout << KMAG << nfo() << "transaction rejected from unknown client: " << cid << KNRM << std::endl; } }
-  } else { if (DEBUG1) std::cout << KMAG << nfo() << "discarded:" << msg.prettyPrint() << KNRM << std::endl; }
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  stats.addTotalHandleTime(time);
-}
 
-void Handler::handle_transaction(MsgTransaction msg, const ClientNet::conn_t &conn) {
-  handleTransaction(msg);
-}
-
-void Handler::handle_start(MsgStart msg, const ClientNet::conn_t &conn) {
-  CID cid = msg.cid;
-
-  if (this->clients.find(cid) == this->clients.end()) {
-    (this->clients)[cid]=std::make_tuple(true,0,0,conn);
-  }
-
-  if (!this->started) {
-    this->started=true;
-    getStarted();
-  }
-}
-
-// --------------------------------------------------------------
+// ------------------------------------------------------------
 // Chained HotStuff
-// --------------------------------------------------------------
+// ------------------------------------------------------------
 
-// The justification will have a view this->view-1 if things went well,
-// and otherwise there will be a gap between just's view and this->view (capturing blank blocks)
+void Handler::sendMsgNewViewCh(MsgNewViewCh msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
+}
+
+void Handler::sendMsgPrepareCh(MsgPrepareCh msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  if (DEBUGT) printNowTime("sending MsgPrepareCh");
+}
+
+void Handler::sendMsgLdrPrepareCh(MsgLdrPrepareCh msg, Peers recipients) {
+  if (DEBUG1) std::cout << KBLU << nfo() << "sending(" << sizeof(msg) << "-" << sizeof(MsgLdrPrepareCh) << "):" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
+  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  if (DEBUGT) printNowTime("sending MsgLdrPrepareCh");
+}
+
+
 JBlock Handler::createNewBlockCh() {
+  // The justification will have a view this->view-1 if things went well,
+  // and otherwise there will be a gap between just's view and this->view (capturing blank blocks)
   std::lock_guard<std::mutex> guard(mu_trans);
 
   Transaction trans[MAX_NUM_TRANSACTIONS];
@@ -978,8 +962,63 @@ JBlock Handler::createNewBlockCh() {
   return JBlock(this->view,this->justNV,size,trans);
 }
 
-// TODO: execute also all blocks that come before that haven't been executed yet
+
+Just Handler::callTEEsignCh() {
+  auto start = std::chrono::steady_clock::now();
+  Just just = tp.TEEsign();
+  auto end = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  stats.addTEEsign(time);
+  stats.addTEEtime(time);
+  return just;
+}
+
+Just Handler::callTEEprepareCh(JBlock block, JBlock block0, JBlock block1) {
+  auto start = std::chrono::steady_clock::now();
+  Just just = tp.TEEprepare(stats,this->nodes,block,block0,block1);
+  auto end = std::chrono::steady_clock::now();
+  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  stats.addTEEprepare(time);
+  stats.addTEEtime(time);
+  return just;
+}
+
+Just Handler::ldrPrepareCh2just(MsgLdrPrepareCh msg) { // For backups to verify MsgLdrPrepareCh messages send by leaders
+  JBlock block = msg.block;
+  RData rdata(block.hash(),block.getView(),Hash(),View(),PH1_PREPARE);
+  Signs signs = Signs(msg.sign);
+  return Just(rdata,signs);
+}
+
+void Handler::startNewViewCh() {
+  Just justNv = callTEEsignCh();
+  // generate justifications until we can generate one for the next view
+  while (justNv.getRData().getPropv() < this->view || justNv.getRData().getPhase() != PH1_NEWVIEW) {
+    if (DEBUG1) std::cout << KMAG << nfo() << "generaring yet a new-view:" << this->view << ":" << justNv.prettyPrint() << KNRM << std::endl;
+    justNv = callTEEsignCh();
+  }
+
+  if (justNv.getSigns().getSize() == 1) {
+
+    PID nextLeader = getLeaderOf(this->view+1);
+    Peers recipientsNL = keep_from_peers(nextLeader);
+    Sign sigNv = justNv.getSigns().get(0);
+    MsgNewViewCh msgNv(justNv.getRData(),sigNv);
+
+    if (amLeaderOf(this->view+1)) { this->log.storeNvCh(msgNv); } // If we're the leader of the next view, we store the message
+    else { sendMsgNewViewCh(msgNv,recipientsNL); } // Otherwise we send it
+    
+    this->view++; // increment the view
+    setTimer(); // start the timer
+
+    if (!amLeaderOf(this->view)) {
+      handleEarlierMessagesCh(); // try to handler earlier messages
+    }
+  }
+}
+
 void Handler::tryExecuteCh(JBlock block, JBlock block0, JBlock block1) {
+  // TODO: execute also all blocks that come before that haven't been executed yet
   // we skip this step if block0 is the genesis block because it does not have any certificate
   if (block0.getView() != 0) {
     std::vector<JBlock> blocksToExec;
@@ -1051,60 +1090,7 @@ void Handler::tryExecuteCh(JBlock block, JBlock block0, JBlock block1) {
   }
 }
 
-// For leaders to check whether they can create a new (this->qsize)-justification
-void Handler::checkNewJustCh(RData data) {
-  Signs signs = (this->log).getPrepareCh(data.getPropv(),this->qsize);
-  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
-  if (signs.getSize() == this->qsize) {
-    this->justNV = Just(data,signs); // create the new justification
-    this->view++; // increment the view
-    setTimer(); // reset the timer
-    prepareCh(); // start the new view
-  }
-}
-
-// handle stored MsgLdrPrepareCh messages
-void Handler::handleEarlierMessagesCh() {
-  if (amCurrentLeader()) {
-  } else {
-    MsgLdrPrepareCh msg = this->log.firstLdrPrepareCh(this->view);
-    if (msg.sign.isSet()  // If we've stored the leader's proposal
-        && this->jblocks.find(this->view) == this->jblocks.end()) { // we handle the message if we haven't done so already, i.e., we haven't stored the corresponding block
-      if (DEBUG1) std::cout << KMAG << nfo() << "catching up using leader proposal (view=" << this->view << ")" << KNRM << std::endl;
-      voteCh(msg.block);
-    }
-  }
-}
-
-void Handler::startNewViewCh() {
-  Just justNv = callTEEsignCh();
-  // generate justifications until we can generate one for the next view
-  while (justNv.getRData().getPropv() < this->view || justNv.getRData().getPhase() != PH1_NEWVIEW) {
-    if (DEBUG1) std::cout << KMAG << nfo() << "generaring yet a new-view:" << this->view << ":" << justNv.prettyPrint() << KNRM << std::endl;
-    justNv = callTEEsignCh();
-  }
-
-  if (justNv.getSigns().getSize() == 1) {
-
-    PID nextLeader = getLeaderOf(this->view+1);
-    Peers recipientsNL = keep_from_peers(nextLeader);
-    Sign sigNv = justNv.getSigns().get(0);
-    MsgNewViewCh msgNv(justNv.getRData(),sigNv);
-
-    if (amLeaderOf(this->view+1)) { this->log.storeNvCh(msgNv); } // If we're the leader of the next view, we store the message
-    else { sendMsgNewViewCh(msgNv,recipientsNL); } // Otherwise we send it
-    
-    this->view++; // increment the view
-    setTimer(); // start the timer
-
-    if (!amLeaderOf(this->view)) {
-      handleEarlierMessagesCh(); // try to handler earlier messages
-    }
-  }
-}
-
-// Votes for a block, sends the vote, and signs the prepared certif. and sends it
-void Handler::voteCh(JBlock block) {
+void Handler::voteCh(JBlock block) { // Votes for a block, sends the vote, and signs the prepared certif. and sends it
   if (DEBUG1) std::cout << KBLU << nfo() << "voting for " << block.prettyPrint() << KNRM << std::endl;
 
   this->jblocks[this->view]=block;
@@ -1175,8 +1161,7 @@ void Handler::voteCh(JBlock block) {
   }
 }
 
-// For leader to do begin a view (prepare phase) in Chained version
-void Handler::prepareCh() {
+void Handler::prepareCh() { // For leader to do begin a view (prepare phase) in Chained version
   if (DEBUG1) std::cout << KBLU << nfo() << "leader is preparing" << KNRM << std::endl;
 
   // If we don't have the latest certificate, we have to select one
@@ -1189,10 +1174,34 @@ void Handler::prepareCh() {
   voteCh(block);
 }
 
-// NEW-VIEW messages are received by leaders
-// Once a leader has received 2f+1 new-view messages, it creates a proposal out of the highest prepared block
-// and sends this proposal in a PREPARE message
+void Handler::checkNewJustCh(RData data) { // For leaders to check whether they can create a new (this->qsize)-justification
+  Signs signs = (this->log).getPrepareCh(data.getPropv(),this->qsize);
+  // We should not need to check the size of 'signs' as this function should only be called, when this is possible
+  if (signs.getSize() == this->qsize) {
+    this->justNV = Just(data,signs); // create the new justification
+    this->view++; // increment the view
+    setTimer(); // reset the timer
+    prepareCh(); // start the new view
+  }
+}
+
+void Handler::handleEarlierMessagesCh() { // handle stored MsgLdrPrepareCh messages
+  if (amCurrentLeader()) {
+  } else {
+    MsgLdrPrepareCh msg = this->log.firstLdrPrepareCh(this->view);
+    if (msg.sign.isSet()  // If we've stored the leader's proposal
+        && this->jblocks.find(this->view) == this->jblocks.end()) { // we handle the message if we haven't done so already, i.e., we haven't stored the corresponding block
+      if (DEBUG1) std::cout << KMAG << nfo() << "catching up using leader proposal (view=" << this->view << ")" << KNRM << std::endl;
+      voteCh(msg.block);
+    }
+  }
+}
+
+
 void Handler::handleNewviewCh(MsgNewViewCh msg) {
+  // NEW-VIEW messages are received by leaders
+  // Once a leader has received 2f+1 new-view messages, it creates a proposal out of the highest prepared block
+  // and sends this proposal in a PREPARE message
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
   Hash   hashP = msg.data.getProph();
@@ -1226,16 +1235,7 @@ void Handler::handle_newview_ch(MsgNewViewCh msg, const PeerNet::conn_t &conn) {
   handleNewviewCh(msg);
 }
 
-// For backups to verify MsgLdrPrepareCh messages send by leaders
-Just Handler::ldrPrepareCh2just(MsgLdrPrepareCh msg) {
-  JBlock block = msg.block;
-  RData rdata(block.hash(),block.getView(),Hash(),View(),PH1_PREPARE);
-  Signs signs = Signs(msg.sign);
-  return Just(rdata,signs);
-}
-
-// Run by the backups in the prepare phase
-void Handler::handleLdrPrepareCh(MsgLdrPrepareCh msg) {
+void Handler::handleLdrPrepareCh(MsgLdrPrepareCh msg) { // Run by the backups in the prepare phase
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling(view=" << this->view << "):" << msg.prettyPrint() << KNRM << std::endl;
 
@@ -1273,8 +1273,7 @@ void Handler::handle_ldrprepare_ch(MsgLdrPrepareCh msg, const PeerNet::conn_t &c
   handleLdrPrepareCh(msg);
 }
 
-// For the leader of view this->view+1 to handle votes
-void Handler::handlePrepareCh(MsgPrepareCh msg) {
+void Handler::handlePrepareCh(MsgPrepareCh msg) { // For the leader of view this->view+1 to handle votes
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
 

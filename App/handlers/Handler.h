@@ -9,10 +9,8 @@
 #include "utils/Log.h"
 #include "utils/Stats.h"
 #include "utils/user_types.h"
-
 #include "utils/TrustedFun.h"
 #include "utils/TrustedCh.h"
-
 // Salticidae related stuff
 #include <memory>
 #include <cstdio>
@@ -73,17 +71,17 @@ class Handler {
   // ------------------------------------------------------------
   // Common Protocol Functions
   // ------------------------------------------------------------
+
   void printClientInfo();
   void printNowTime(std::string msg);
-  unsigned int getTotal(); // returns the total number of nodes
+  bool timeToStop();
+  void recordStats();
+  void setTimer();
+
   unsigned int getLeaderOf(View v); // returns the leader of view 'v'
   unsigned int getCurrentLeader(); // returns the current leader
   bool amLeaderOf(View v); // true iff 'myid' is the leader of view 'v'
   bool amCurrentLeader(); // ture iff 'myid' is the leader of the current view
-
-  bool timeToStop();
-  void recordStats();
-  void setTimer();
   void getStarted(); // To start the code
   void handle_transaction(MsgTransaction msg, const ClientNet::conn_t &conn);
   void handle_start(MsgStart msg, const ClientNet::conn_t &conn);
@@ -116,15 +114,14 @@ class Handler {
   void respondToPrepareJust(Just justPrep);
   void respondToPreCommitJust(Just justPc);
 
-  void executeRData(RData rdata);
-  void handleEarlierMessages();
-  void startNewView();
-
-  // Wrappers around the TEE functions
+    // Wrappers around the TEE functions
   Just callTEEsign();
   Just callTEEstore(Just j);
   Just callTEEprepare(Hash h, Just j);
-  bool callTEEverify(Just j);
+
+  void executeRData(RData rdata);
+  void handleEarlierMessages();
+  void startNewView();
 
   void handleNewview(MsgNewView msg);
   void handlePrepare(MsgPrepare msg);
@@ -139,7 +136,6 @@ class Handler {
   void handle_precommit(MsgPreCommit msg, const PeerNet::conn_t &conn);
   void handle_commit(MsgCommit msg, const PeerNet::conn_t &conn);
   
-
   // ------------------------------------------------------------
   // Chained HotStuff
   // ------------------------------------------------------------
@@ -150,12 +146,11 @@ class Handler {
 
   JBlock createNewBlockCh();
 
-  void startNewViewCh();
-
   Just callTEEsignCh();
   Just callTEEprepareCh(JBlock block, JBlock block0, JBlock block1);
   Just ldrPrepareCh2just(MsgLdrPrepareCh msg);
 
+  void startNewViewCh();
   void tryExecuteCh(JBlock block, JBlock block0, JBlock block1);
   void voteCh(JBlock block);
   void prepareCh();

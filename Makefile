@@ -10,7 +10,8 @@ LDLIBS = `pkg-config --libs   libcrypto openssl libuv` #-lgmp # gio-2.0 openssl
 ######## App Settings ########
 
 App_Cpp_Files := $(wildcard App/*.cpp) \
-				 $(wildcard App/utils/*.cpp) 
+				 $(wildcard App/utils/*.cpp) \
+				 $(wildcard App/handlers/*.cpp) 
 App_Cpp_Files := $(filter-out App/Client.cpp App/Server.cpp, $(App_Cpp_Files))
 App_Include_Paths := -IApp $(Salticidae_Include_Paths)
 
