@@ -11,7 +11,6 @@
 
 #include "salticidae/stream.h"
 
-
 // Justified blocks
 class JBlock {
  private:

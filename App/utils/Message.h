@@ -5,20 +5,15 @@
 
 #include "Nodes.h"
 #include "Signs.h"
-//#include "Auth.h"
-//#include "Auths.h"
 #include "Proposal.h"
+#include "ParaProposal.h"
 #include "JBlock.h"
-// #include "Transaction.h"
-
-
 #include "salticidae/msg.h"
 #include "salticidae/stream.h"
 
-
-/////////////////////////////////////////////////////
+// ------------------------------------------------------------
 // Client messages
-
+// ------------------------------------------------------------
 
 struct MsgTransaction {
   static const uint8_t opcode = HDR_TRANSACTION;
@@ -73,11 +68,9 @@ struct MsgReply {
   void serialize(salticidae::DataStream &s) const { s << reply; }
 };
 
-
-
-/////////////////////////////////////////////////////
-// Basic version - Baseline and Cheap
-
+// ------------------------------------------------------------
+// Basic version - Baseline
+// ------------------------------------------------------------
 
 // TODO: replace Signs by Sign
 struct MsgNewView {
@@ -172,8 +165,9 @@ struct MsgCommit {
   void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
 };
 
-/////////////////////////////////////////////////////
-// Chained Version - Baseline
+// ------------------------------------------------------------
+// Chained HotStuff
+// ------------------------------------------------------------
 
 struct MsgNewViewCh {
   static const uint8_t opcode = HDR_NEWVIEW_CH;
@@ -192,7 +186,6 @@ struct MsgNewViewCh {
   unsigned int sizeMsg() { return (sizeof(RData) + sizeof(Sign)); }
   void serialize(salticidae::DataStream &s) const { s << data << sign; }
 };
-
 
 struct MsgLdrPrepareCh {
   static const uint8_t opcode = HDR_PREPARE_LDR_CH;
@@ -213,7 +206,6 @@ struct MsgLdrPrepareCh {
   void serialize(salticidae::DataStream &s) const { s << block << sign; }
 };
 
-
 struct MsgPrepareCh {
   static const uint8_t opcode = HDR_PREPARE_CH;
   salticidae::DataStream serialized;
@@ -232,6 +224,188 @@ struct MsgPrepareCh {
   void serialize(salticidae::DataStream &s) const { s << data << sign; }
 };
 
+
+// ------------------------------------------------------------
+// Parallel HotStuff
+// ------------------------------------------------------------
+
+struct MsgNewViewPara {
+  static const uint8_t opcode = HDR_NEWVIEW_PARA;
+  salticidae::DataStream serialized;
+  RDataPara rdata;
+  Signs signs;
+  MsgNewViewPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
+  MsgNewViewPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  bool operator<(const MsgNewViewPara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "NEWVIEW[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+  }
+  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
+  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+};
+
+struct MsgRecoverPara { // TODO: Actually implement this
+  static const uint8_t opcode = HDR_RECOVER_PARA;
+  salticidae::DataStream serialized;
+  RDataPara rdata;
+  Signs signs;
+  // For a replica include list of QCs 
+
+  MsgRecoverPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
+  MsgRecoverPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  bool operator<(const MsgRecoverPara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "RECOVER[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+  }
+  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
+  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+};
+
+struct MsgLdrRecoverPara { // TODO: Actually implement this
+  static const uint8_t opcode = HDR_RECOVER_LDR_PARA;
+  salticidae::DataStream serialized;
+  RDataPara rdata;
+  Signs signs;
+  // For a leader include list of sequence numbers its missing
+  MsgLdrRecoverPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
+  MsgLdrRecoverPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  bool operator<(const MsgLdrRecoverPara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "RECOVER[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+  }
+  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
+  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+};
+
+
+struct MsgVerifyPara { // TODO: Actually implement this
+  static const uint8_t opcode = HDR_VERIFY_PARA;
+  salticidae::DataStream serialized;
+  RDataPara rdata;
+  Signs signs;
+  std::vector<Hash> blockHashes;
+  // This message is only for leader and includes a list of block hashes and a QC
+  MsgVerifyPara(const RDataPara &rdata, const Signs &signs, const std::vector<Hash> &blockHashes)
+    : rdata(rdata), signs(signs), blockHashes(blockHashes) {
+    serialized << rdata << signs;
+    serialized << static_cast<uint64_t>(blockHashes.size()); // Serialize the size of the vector
+    for (const auto &hash : blockHashes) {
+      serialized << hash; // Serialize each Hash object
+    }
+  }
+  MsgVerifyPara(salticidae::DataStream &&s) {
+    s >> rdata >> signs;
+    uint64_t size;
+    s >> size; // Deserialize the size of the vector
+    blockHashes.resize(size);
+    for (auto &hash : blockHashes) {
+      s >> hash; // Deserialize each Hash object
+    }
+  }
+
+  bool operator<(const MsgVerifyPara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "VERIFY[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]"; //AE-TODO add block hashes to print
+  }
+  unsigned int sizeMsg() const { 
+    unsigned int size = sizeof(RDataPara) + sizeof(Signs);
+    size += sizeof(std::vector<Hash>);
+    size += blockHashes.size() * sizeof(Hash);
+    return size;
+  }
+  void serialize(salticidae::DataStream &s) const {
+    s << rdata << signs;
+    s << static_cast<uint64_t>(blockHashes.size()); // Serialize the size of the vector
+    for (const auto &hash : blockHashes) {
+      s << hash; // Serialize each Hash object
+    }
+  }
+};
+
+struct MsgLdrPreparePara {
+  static const uint8_t opcode = HDR_PREPARE_LDR_PARA;
+  salticidae::DataStream serialized;
+  ParaProposal prop;
+  Signs signs;
+  MsgLdrPreparePara() {}
+  MsgLdrPreparePara(const ParaProposal &prop, const Signs &signs) : prop(prop),signs(signs) { serialized << prop << signs; }
+  MsgLdrPreparePara(salticidae::DataStream &&s) { s >> prop >> signs; }
+  bool operator<(const MsgLdrPreparePara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "LDRPREPARE[" + prop.prettyPrint() + "," + signs.prettyPrint() + "]";
+  }
+  unsigned int sizeMsg() { return (sizeof(ParaProposal) + sizeof(Signs)); }
+  void serialize(salticidae::DataStream &s) const { s << prop << signs; }
+};
+
+struct MsgPreparePara {
+  static const uint8_t opcode = HDR_PREPARE_PARA;
+  salticidae::DataStream serialized;
+  RDataPara rdata;
+  Signs signs;
+  MsgPreparePara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
+  MsgPreparePara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  bool operator<(const MsgPreparePara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "PREPARE[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+  }
+  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
+  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+};
+
+struct MsgPreCommitPara {
+  static const uint8_t opcode = HDR_PRECOMMIT_PARA;
+  salticidae::DataStream serialized;
+  RDataPara rdata;
+  Signs signs;
+  MsgPreCommitPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
+  MsgPreCommitPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  bool operator<(const MsgPreCommitPara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "PRECOMMIT[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+  }
+  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
+  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+};
+
+struct MsgCommitPara {
+  static const uint8_t opcode = HDR_COMMIT_PARA;
+  salticidae::DataStream serialized;
+  RDataPara rdata;
+  Signs signs;
+  MsgCommitPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
+  MsgCommitPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  bool operator<(const MsgCommitPara& s) const {
+    if (signs < s.signs) { return true; }
+    return false;
+  }
+  std::string prettyPrint() {
+    return "COMMIT[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+  }
+  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
+  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+};
 
 
 #endif

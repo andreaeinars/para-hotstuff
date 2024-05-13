@@ -11,6 +11,15 @@ enum unit { tt };
 #define HDR_PRECOMMIT   0x03
 #define HDR_COMMIT      0x04
 
+#define HDR_NEWVIEW_PARA     0x05
+#define HDR_RECOVER_PARA     0x06
+#define HDR_VERIFY_PARA      0x07
+#define HDR_PREPARE_PARA     0x08
+#define HDR_PREPARE_LDR_PARA 0x09
+#define HDR_PRECOMMIT_PARA   0x10
+#define HDR_COMMIT_PARA      0x11
+#define HDR_RECOVER_LDR_PARA 0x12
+
 #define HDR_TRANSACTION 0x18
 #define HDR_REPLY       0x19
 #define HDR_START       0x20
@@ -22,9 +31,13 @@ enum unit { tt };
 typedef uint8_t Phase1;
 
 #define PH1_NEWVIEW   0x0
+#define PH1_RECOVER   0x4
+#define PH1_VERIFY    0x5
 #define PH1_PREPARE   0x1
 #define PH1_PRECOMMIT 0x2
 #define PH1_COMMIT    0x3
+#define PH1_PARALLEL  0x6
+
 
 typedef unsigned int PID; // process ids
 typedef unsigned int CID; // client ids

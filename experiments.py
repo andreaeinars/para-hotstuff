@@ -626,6 +626,7 @@ if args.p3:
 if args.pall:
     runBasic   = True
     runChained = True
+    runPara    = True
     # TODO: Set runPara to True when ready
     print("SUCCESSFULLY PARSED ARGUMENT - testing all protocols")
 

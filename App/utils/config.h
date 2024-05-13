@@ -11,7 +11,7 @@
 // to print timing info
 #define DEBUGT  false
 // adds ocalls to profile crypto in enclaves
-#define DEBUGOT false
+#define DEBUGOT true
 // to print 'EXECUTE' messages
 #define DEBUGE  true
 // to print client messages

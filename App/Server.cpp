@@ -18,6 +18,7 @@
 
 #include "utils/Message.h"
 #include "utils/RData.h"
+#include "utils/RDataPara.h"
 #include "utils/Signs.h"
 #include "utils/Nodes.h"
 #include "utils/KeysFun.h"
@@ -123,6 +124,16 @@ int main(int argc, char const *argv[]) {
                    sizeof(MsgNewViewCh),
                    sizeof(MsgLdrPrepareCh),
                    sizeof(MsgPrepareCh)});
+  #elif defined(PARALLEL_HOTSTUFF) 
+  size = std::max({size,
+                  sizeof(MsgNewViewPara),
+                  sizeof(MsgPreparePara),
+                  sizeof(MsgRecoverPara),
+                  sizeof(MsgLdrRecoverPara),
+                  sizeof(MsgVerifyPara),
+                  sizeof(MsgLdrPreparePara),
+                  sizeof(MsgPreCommitPara),
+                  sizeof(MsgCommitPara)});  
   #endif
 
   if (DEBUG0) {

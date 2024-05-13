@@ -26,6 +26,19 @@ const uint8_t MsgLdrPrepare::opcode;
 const uint8_t MsgPreCommit::opcode;
 const uint8_t MsgCommit::opcode;
 
+const uint8_t MsgNewViewCh::opcode;
+const uint8_t MsgLdrPrepareCh::opcode;
+const uint8_t MsgPrepareCh::opcode;
+
+const uint8_t MsgNewViewPara::opcode;
+const uint8_t MsgRecoverPara::opcode;
+const uint8_t MsgLdrRecoverPara::opcode;
+const uint8_t MsgVerifyPara::opcode;
+const uint8_t MsgLdrPreparePara::opcode;
+const uint8_t MsgPreparePara::opcode;
+const uint8_t MsgPreCommitPara::opcode;
+const uint8_t MsgCommitPara::opcode;
+
 const uint8_t MsgTransaction::opcode;
 const uint8_t MsgReply::opcode;
 const uint8_t MsgStart::opcode;
@@ -53,7 +66,7 @@ std::string statsThroughputLatency;
 std::string debugThroughputLatency;
 
 // In the chained versions, as we start with node 1 as the leader, we also send the first transaction to 1
-#if defined(CHAINED_BASELINE) || defined(CHAINED_CHEAP_AND_QUICK) || defined(CHAINED_CHEAP_AND_QUICK_DEBUG)
+#if defined(CHAINED_BASELINE)
 bool skipFirst = true;
 #else
 bool skipFirst = false;
@@ -238,30 +251,41 @@ int main(int argc, char const *argv[]) {
     //public key
     KEY pub;
     // Set public key - nothing special to do for EC
-#if defined(KK_RSA4096) || defined(KK_RSA2048)
-    pub = RSA_new();
-#endif
-#if (defined(ACCUM) || defined(COMB)) && defined(KK_EC256)
-    BIO *bio = BIO_new(BIO_s_mem());
-    int w = BIO_write(bio,pub_key256,sizeof(pub_key256));
-    pub = PEM_read_bio_EC_PUBKEY(bio, NULL, NULL, NULL);
-#else
+    #if defined(KK_RSA4096) || defined(KK_RSA2048)
+        pub = RSA_new();
+    #endif
+
     kf.loadPublicKey(i,&pub);
-#endif
     if (DEBUGC) std::cout << KMAG << "node id: " << i << KNRM << std::endl;
     nodes.setPub(i,pub);
   }
 
   long unsigned int size = std::max({sizeof(MsgTransaction), sizeof(MsgReply), sizeof(MsgStart)});
 
-  #if defined(BASIC_CHEAP) || defined(BASIC_BASELINE)
+  #if defined(BASIC_BASELINE)
   size = std::max({size,
                    sizeof(MsgNewView),
                    sizeof(MsgPrepare),
                    sizeof(MsgLdrPrepare),
                    sizeof(MsgPreCommit),
                    sizeof(MsgCommit)});
+  #elif defined(CHAINED_BASELINE)
+  size = std::max({size,
+                   sizeof(MsgNewViewCh),
+                   sizeof(MsgLdrPrepareCh),
+                   sizeof(MsgPrepareCh)});
+  #elif defined(PARALLEL_HOTSTUFF) 
+  size = std::max({size,
+                  sizeof(MsgNewViewPara),
+                  sizeof(MsgPreparePara),
+                  sizeof(MsgRecoverPara),
+                  sizeof(MsgLdrRecoverPara),
+                  sizeof(MsgVerifyPara),
+                  sizeof(MsgLdrPreparePara),
+                  sizeof(MsgPreCommitPara),
+                  sizeof(MsgCommitPara)});         
   #endif
+
 
   MsgNet::Config config;
   config.max_msg_size(size);

@@ -11,6 +11,7 @@
 #include "utils/user_types.h"
 #include "utils/TrustedFun.h"
 #include "utils/TrustedCh.h"
+#include "utils/TrustedPara.h"
 // Salticidae related stuff
 #include <memory>
 #include <cstdio>
@@ -43,8 +44,10 @@ class Handler {
   Nodes nodes;                   // collection of the other nodes
   KEY priv;                      // private key
   View view = 0;                 // current view - initially 0
-  unsigned int maxViews = 0;     // 0 means no constraints
+  unsigned int localSeq = 0;     // local sequence number
+  unsigned int maxViews = 2;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
+  unsigned int maxBlocksInView = 2;
 
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
@@ -63,10 +66,21 @@ class Handler {
   std::list<Transaction> transactions; // current waiting to be processed
   std::map<View,Block> blocks; // blocks received in each view
   std::map<View,JBlock> jblocks; // blocks received in each view (Chained baseline)
+  std::map<View, std::vector<PBlock>> pblocks;  //blocks received in each view (Parallel baseline)
   Log log; // log of messages
+
+  // Because now there can be multiple justifications for multiple blocks
+  // std::map<View, std::map<unsigned int, std::vector<Just>>> prepareJustsPara;
+  // std::map<View, std::map<unsigned int, std::vector<Just>>> precommitJustsPara;
+  // std::map<View, std::map<unsigned int, std::vector<Just>>> commitJustsPara;
+  std::set<std::pair<View, unsigned int>> initiatedPrepareCerts;
+  std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts;
+  std::set<std::pair<View, unsigned int>> initiatedCommitCerts;
 
   Just justNV;
   std::string nfo(); // used to print debugging info
+
+  Just verifiedJust; // just used for parallel
 
   // ------------------------------------------------------------
   // Common Protocol Functions
@@ -91,6 +105,7 @@ class Handler {
   Peers keep_from_peers(PID id);
   bool Sverify(Signs signs, PID id, Nodes nodes, std::string s);
   bool verifyJust(Just just);
+  bool verifyJustPara(Just just);
   void replyTransactions(Transaction *transactions);
   void replyHash(Hash hash);
 
@@ -114,7 +129,7 @@ class Handler {
   void respondToPrepareJust(Just justPrep);
   void respondToPreCommitJust(Just justPc);
 
-    // Wrappers around the TEE functions
+  // Wrappers around the TEE functions
   Just callTEEsign();
   Just callTEEstore(Just j);
   Just callTEEprepare(Hash h, Just j);
@@ -164,6 +179,67 @@ class Handler {
   void handle_newview_ch(MsgNewViewCh msg, const PeerNet::conn_t &conn);
   void handle_prepare_ch(MsgPrepareCh msg, const PeerNet::conn_t &conn);
   void handle_ldrprepare_ch(MsgLdrPrepareCh msg, const PeerNet::conn_t &conn);
+
+  // ------------------------------------------------------------
+  // Parallel HotStuff
+  // ------------------------------------------------------------
+  void sendMsgNewViewPara(MsgNewViewPara msg, Peers recipients);
+  void sendMsgRecoverPara(MsgRecoverPara msg, Peers recipients);
+  void sendMsgLdrRecoverPara(MsgLdrRecoverPara msg, Peers recipients);
+  void sendMsgPreparePara(MsgPreparePara msg, Peers recipients);
+  void sendMsgVerifyPara(MsgVerifyPara msg, Peers recipients);
+  void sendMsgLdrPreparePara(MsgLdrPreparePara msg, Peers recipients);
+  void sendMsgPreCommitPara(MsgPreCommitPara msg, Peers recipients);
+  void sendMsgCommitPara(MsgCommitPara msg, Peers recipients);
+
+  PBlock createNewBlockPara(Hash hash);
+
+  void executeRDataPara(RDataPara rdata);
+
+
+  std::vector<unsigned int> getMissingSeqNumbersForJust(Just justNV);
+  void initiateRecoverPara(std::vector<unsigned int> missing, Just just);
+  // void initiateRecoverPara(RData rdata); // for leaders to start the phase where nodes will log prepare certificates
+  void initiateVerifyPara(Just just); // for leaders to start the phase where nodes will log lock certificates
+  void preparePara(Just just);
+  void initiatePreparePara(RDataPara rdata); // for leaders to start the phase where nodes will log prepare certificates
+  void initiatePrecommitPara(RDataPara rdata); // for leaders to start the phase where nodes will log lock certificates
+  void initiateCommitPara(RDataPara rdata); // for leaders to start the phase where nodes execute
+
+  void respondToVerifyJust(Just justPrep);
+  void respondToProposalPara(Just justNv, PBlock b);
+  void respondToPrepareJustPara(Just justPrep);
+  void respondToPreCommitJustPara(Just justPc); 
+
+  // AE-TODO is this necessary?
+  Just callTEEsignPara();
+  Just callTEEstorePara(Just j, bool allBlocksReceived);
+  Just callTEEpreparePara(PBlock block, Just j);
+  Just callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes); 
+
+
+
+  // void executeRDataPara(RData rdata);
+  void handleEarlierMessagesPara();
+  void startNewViewPara();
+
+  void handleNewViewPara(MsgNewViewPara msg);
+  void handleRecoverPara(MsgRecoverPara msg);
+  void handleLdrRecoverPara(MsgLdrRecoverPara msg);
+  void handleVerifyPara(MsgVerifyPara msg);
+  void handlePreparePara(MsgPreparePara msg);
+  void handleLdrPreparePara(MsgLdrPreparePara msg);
+  void handlePrecommitPara(MsgPreCommitPara msg);
+  void handleCommitPara(MsgCommitPara msg);
+
+  void handle_newview_para(MsgNewViewPara msg, const PeerNet::conn_t &conn);
+  void handle_recover_para(MsgRecoverPara msg, const PeerNet::conn_t &conn);
+  void handle_ldrrecover_para(MsgLdrRecoverPara msg, const PeerNet::conn_t &conn);
+  void handle_verify_para(MsgVerifyPara msg, const PeerNet::conn_t &conn);
+  void handle_prepare_para(MsgPreparePara msg, const PeerNet::conn_t &conn);
+  void handle_ldrprepare_para(MsgLdrPreparePara msg, const PeerNet::conn_t &conn);
+  void handle_precommit_para(MsgPreCommitPara msg, const PeerNet::conn_t &conn);
+  void handle_commit_para(MsgCommitPara msg, const PeerNet::conn_t &conn);
 
  public:
   Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf);

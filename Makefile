@@ -15,7 +15,7 @@ App_Cpp_Files := $(wildcard App/*.cpp) \
 App_Cpp_Files := $(filter-out App/Client.cpp App/Server.cpp, $(App_Cpp_Files))
 App_Include_Paths := -IApp $(Salticidae_Include_Paths)
 
-App_Cpp_Flags := -fPIC -Wno-attributes $(App_Include_Paths) -std=c++14 $(CFLAGS)
+App_Cpp_Flags := -fPIC -Wno-attributes $(App_Include_Paths) -std=c++17 $(CFLAGS)
 App_Link_Flags := $(LDLIBS) $(Salticidae_Lib_Paths) -lsalticidae
 App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
 

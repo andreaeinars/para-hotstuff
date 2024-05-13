@@ -6,6 +6,7 @@
 #include "Sign.h"
 #include "Nodes.h"
 #include "RData.h"
+#include "RDataPara.h"
 #include "Stats.h"
 
 #include "salticidae/stream.h"

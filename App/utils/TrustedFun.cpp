@@ -44,17 +44,14 @@ void TrustedFun::increment() {
   }
 }
 
-
 Just TrustedFun::sign(Hash h1, Hash h2, View v2) {
   RData rdata(h1,this->view,h2,v2,this->phase);
   Sign sign(this->priv,this->id,rdata.toString());
   Just just(rdata,sign);
-
   increment();
 
   return just;
 }
-
 
 Just TrustedFun::TEEsign(Stats &stats) {
   auto start = std::chrono::steady_clock::now();
@@ -82,7 +79,7 @@ Just TrustedFun::TEEprepare(Stats &stats, Nodes nodes, Hash hash, Just just) {
   if (TEEverify(stats,nodes,just)
       && this->view == rd.getPropv()
       && ph == PH1_NEWVIEW
-      && (h2 == this->lockh || v2 > this->lockv)) {
+      && (h2 == this->lockh || v2 > this->lockv)) { // safenode check
     return sign(hash,h2,v2);
   } else {
     if (DEBUG) std::cout << KMAG << "TEEprepare failed:"

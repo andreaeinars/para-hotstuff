@@ -7,6 +7,7 @@
 #include "Stats.h"
 
 
+//AE-TODO add prefixlocked and extra vars if necessary
 class TrustedFun {
 
  private:
@@ -14,6 +15,10 @@ class TrustedFun {
   View   lockv;          // lockh's view
   Hash   preph;          // hash of the last prepared block
   View   prepv;          // preph's view
+  Hash   latestPrepared; // hash of the latest prepared block
+  View   latestPreparedView; // latestPrepared's view
+  Hash   prefixLocked;   // hash of the prefix locked block
+  View   prefixLockedView; // prefixLocked's view
   View   view;           // current view
   Phase1 phase;          // current phase
   PID    id;             // unique identifier
