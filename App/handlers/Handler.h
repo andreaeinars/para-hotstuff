@@ -45,9 +45,9 @@ class Handler {
   KEY priv;                      // private key
   View view = 0;                 // current view - initially 0
   unsigned int localSeq = 0;     // local sequence number
-  unsigned int maxViews = 2;     // 0 means no constraints
+  unsigned int maxViews = 3;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
-  unsigned int maxBlocksInView = 2;
+  unsigned int maxBlocksInView = 10;
 
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
@@ -240,6 +240,8 @@ class Handler {
   void handle_ldrprepare_para(MsgLdrPreparePara msg, const PeerNet::conn_t &conn);
   void handle_precommit_para(MsgPreCommitPara msg, const PeerNet::conn_t &conn);
   void handle_commit_para(MsgCommitPara msg, const PeerNet::conn_t &conn);
+
+  void replyHashPara(Hash hash, unsigned int seq);
 
  public:
   Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf);

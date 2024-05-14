@@ -432,7 +432,7 @@ def getPercentage(bo,nameBase,faultsBase,valsBase,nameNew,faultsNew,valsNew):
 
 def createPlot(pFile):
     def init_dicts():  # Dictionary initialization
-        protocols = ["BASIC_BASELINE", "CHAINED_BASELINE"]
+        protocols = ["BASIC_BASELINE", "CHAINED_BASELINE", "PARALLEL_HOTSTUFF"]
         metrics = ["throughput-view", "latency-view", "handle", "crypto-sign", "crypto-verif"]
         return {protocol: {metric: {} for metric in metrics} for protocol in protocols}
 
@@ -510,11 +510,12 @@ def createPlot(pFile):
     def extract_plot_data(metric):
         faults_base, vals_base, nums_base = dict2lists(data_dict["BASIC_BASELINE"][metric], 20, False)
         faults_chbase, vals_chbase, nums_chbase = dict2lists(data_dict["CHAINED_BASELINE"][metric], 20, False)
-        return (faults_base, vals_base, nums_base), (faults_chbase, vals_chbase, nums_chbase)
+        faults_para, vals_para, nums_para = dict2lists(data_dict["PARALLEL_HOTSTUFF"][metric], 20, False)
+        return (faults_base, vals_base, nums_base), (faults_chbase, vals_chbase, nums_chbase), (faults_para, vals_para, nums_para)
     
     # Plotting data helper function
     def plot_data(ax, metric, ylabel, logScale, showYlabel):
-        (faults_base, vals_base, nums_base), (faults_chbase, vals_chbase, nums_chbase) = extract_plot_data(metric)
+        (faults_base, vals_base, nums_base), (faults_chbase, vals_chbase, nums_chbase), (faults_para, vals_para, nums_para) = extract_plot_data(metric)
         if showYlabel:
             ax.set(ylabel=ylabel)
         if logScale:
@@ -524,10 +525,14 @@ def createPlot(pFile):
                 ax.plot(faults_base, vals_base, color=basicCOL, linewidth=LW, marker=basicMRK, markersize=MS, linestyle=basicLS, label=basicHS)
             if plotChained and faults_chbase:
                 ax.plot(faults_chbase, vals_chbase, color=chainedCOL, linewidth=LW, marker=chainedMRK, markersize=MS, linestyle=chainedLS, label=chainedHS)
+            if plotPara and faults_para:
+                ax.plot(faults_para, vals_para, color="green", linewidth=LW, marker="s", markersize=MS, linestyle=":", label="Parallel HotStuff")
             if debugPlot:
                 for x, y, z in zip(faults_base, vals_base, nums_base):
                     ax.annotate(z, (x, y), textcoords="offset points", xytext=XYT, ha='center')
                 for x, y, z in zip(faults_chbase, vals_chbase, nums_chbase):
+                    ax.annotate(z, (x, y), textcoords="offset points", xytext=XYT, ha='center')
+                for x, y, z in zip(faults_para, vals_para, nums_para):
                     ax.annotate(z, (x, y), textcoords="offset points", xytext=XYT, ha='center')
         if showLegend1 or (showLegend2 and not plotThroughput):
             ax.legend(ncol=2, prop={'size': 9})

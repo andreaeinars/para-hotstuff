@@ -23,10 +23,12 @@ class TrustedPara {
 
   Just sign(Hash h1, Hash h2, View v2);
   Just signBlock(Hash h1, Hash h2, View v2, unsigned int seqNumber);
-  void increment_node_phase();
   void increment_block_phase(Hash blockHash);
 
  public:
+  void increment_node_phase();
+  void increment_view();
+  void set_phase(Phase1 phase);
   TrustedPara();
   TrustedPara(unsigned int id, KEY priv, unsigned int q);
 

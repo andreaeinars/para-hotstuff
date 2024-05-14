@@ -163,7 +163,7 @@ bool verifyText(std::string text, RSA_key pub, unsigned char sign[SIGN_LEN]) {
 
 
 bool verifyText(std::string text, EC_key pub, unsigned char sign[SIGN_LEN]) {
-  if (DEBUG) { std::cout << KCYN << "verifying text using EC" << KNRM << std::endl; }
+  // if (DEBUG) { std::cout << KCYN << "verifying text using EC" << KNRM << std::endl; }
   unsigned int signLen = SIGN_LEN;
   unsigned char hash[SHA256_DIGEST_LENGTH];
 
@@ -179,7 +179,7 @@ bool verifyText(std::string text, EC_key pub, unsigned char sign[SIGN_LEN]) {
 
 
 bool verifyText(std::string text, EVP_key pub, unsigned char sign[SIGN_LEN]) {
-  if (DEBUG) { std::cout << KCYN << "verifying text using EC" << KNRM << std::endl; }
+  // if (DEBUG) { std::cout << KCYN << "verifying text using EC" << KNRM << std::endl; }
   unsigned int signLen = SIGN_LEN;
   unsigned char hash[SHA256_DIGEST_LENGTH];
 
@@ -225,7 +225,7 @@ bool Sign::isSet() { return this->set; }
 
 bool Sign::verify(KEY pub, std::string text) {
   bool b = verifyText(text,pub,this->sign);
-  if (DEBUG) { std::cout << KCYN << "verified signature: " << b << KNRM << std::endl; }
+  // if (DEBUG) { std::cout << KCYN << "verified signature: " << b << KNRM << std::endl; }
   return b;
 }
 

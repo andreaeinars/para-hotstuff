@@ -87,6 +87,7 @@ class Log {
   std::string prettyPrint();
 
   bool hasPrecommitForSeq(View view, unsigned int seqNumber);
+  bool hasPrepForSeq(View view, unsigned int seqNumber);
 };
 
 #endif

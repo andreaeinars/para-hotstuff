@@ -24,7 +24,7 @@ NodeInfo * Nodes::find(PID id) {
   std::map<PID,NodeInfo>::iterator it = nodes.find(id);
 
   if (it != nodes.end()) {
-    if (DEBUG) { std::cout << KMAG << "found a corresponding NodeInfo entry" << KNRM << std::endl; }
+    // if (DEBUG) { std::cout << KMAG << "found a corresponding NodeInfo entry" << KNRM << std::endl; }
     return &(it->second);
   } else { return NULL; }
 }
@@ -34,7 +34,7 @@ void Nodes::setPub(PID id, KEY pub) {
   std::map<PID,NodeInfo>::iterator it = nodes.find(id);
 
   if (it != nodes.end()) {
-    if (DEBUG) { std::cout << KMAG << "found a corresponding NodeInfo entry" << KNRM << std::endl; }
+    // if (DEBUG) { std::cout << KMAG << "found a corresponding NodeInfo entry" << KNRM << std::endl; }
     NodeInfo nfo = it->second;
     nfo.setPub(pub);
     this->nodes[id]=nfo;

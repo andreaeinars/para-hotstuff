@@ -47,6 +47,7 @@ void TrustedPara::increment_node_phase() {
 void TrustedPara::increment_block_phase(Hash blockHash) {
   if (blockPhases.find(blockHash) == blockPhases.end()) { //AE-TODO: Not sure this is needed
         blockPhases[blockHash] = PH1_PREPARE;
+        this->phase = PH1_PARALLEL;
   }
   Phase1 &blockPhase = blockPhases[blockHash];
   if (blockPhase == PH1_PREPARE) {
@@ -58,12 +59,21 @@ void TrustedPara::increment_block_phase(Hash blockHash) {
   }
 }
 
+void TrustedPara::increment_view() {
+  this->view++;
+}
+
+void TrustedPara::set_phase(Phase1 phase) {
+  this->phase = phase;
+}
+
 Just TrustedPara::sign(Hash h1, Hash h2, View v2) {
   RDataPara rdata(h1,this->view,h2,v2,this->phase, 0); //todo add sequnce number
   Sign sign(this->priv,this->id,rdata.toString());
   Just just(rdata,sign);
-  increment_block_phase(h1);
-  if (DEBUG) std::cout << "Signing: " << just.getRDataPara().prettyPrint() << std::endl;
+  // increment_block_phase(h1);
+  increment_node_phase();
+  // if (DEBUG) std::cout << "Signing: " << just.getRDataPara().prettyPrint() << std::endl;
   return just;
 }
 
@@ -72,12 +82,12 @@ Just TrustedPara::signBlock(Hash h1, Hash h2, View v2, unsigned int seqNumber) {
         blockPhases[h1] = PH1_PREPARE;
   }
   Phase1 ph = blockPhases[h1];
-  if (DEBUG) std::cout << "Signing with phase: " << ph << std::endl;
+  // if (DEBUG) std::cout << "Signing with phase: " << ph << std::endl;
   RDataPara rdata(h1,this->view,h2,v2,ph, seqNumber); //todo add sequnce number
   Sign sign(this->priv,this->id,rdata.toString());
   Just just(rdata,sign);
   increment_block_phase(h1);
-  if (DEBUG) std::cout << "Signing: " << just.getRDataPara().prettyPrint() << std::endl;
+  // if (DEBUG) std::cout << "Signing: " << just.getRDataPara().prettyPrint() << std::endl;
   return just;
 }
 
@@ -117,12 +127,12 @@ Just TrustedPara::TEEverifyLeaderQC(Stats &stats, Nodes nodes, Just just, const 
   bool eq_phases_result = ph == PH1_NEWVIEW;
   bool safety_result = prefixLockedInHashes || v2 > this->prefixLockedView;
 
-  if (DEBUG) {
-    std::cout << "TEEverify result: " << teeverif_result << std::endl;
-    std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", rd.getPropv(): " << rd.getPropv() << ")" << std::endl;
-    std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ", PH1_NEWVIEW: " << PH1_NEWVIEW << ")" << std::endl;
-    std::cout << "safety result: " << safety_result << " (prefixLockedInHashes: " << prefixLockedInHashes << ", v2: " << v2 << ", this->prefixLockedView: " << this->prefixLockedView << ")" << std::endl;
-  }
+  // if (DEBUG) {
+  //   std::cout << "TEEverify result: " << teeverif_result << std::endl;
+  //   std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", rd.getPropv(): " << rd.getPropv() << ")" << std::endl;
+  //   std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ", PH1_NEWVIEW: " << PH1_NEWVIEW << ")" << std::endl;
+  //   std::cout << "safety result: " << safety_result << " (prefixLockedInHashes: " << prefixLockedInHashes << ", v2: " << v2 << ", this->prefixLockedView: " << this->prefixLockedView << ")" << std::endl;
+  // }
 
    if (teeverif_result
       && eq_views_result
@@ -154,11 +164,11 @@ Just TrustedPara::TEEprepare(Stats &stats, Nodes nodes, PBlock block, Just just)
   bool eq_views_result = this->view == rd.getPropv();
   bool eq_phases_result = ph == PH1_NEWVIEW;
  
-  if (DEBUG) {
-    std::cout << "TEEverify result: " << teeverif_result << std::endl;
-    std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", rd.getPropv(): " << rd.getPropv() << ")" << std::endl;
-    std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ", PH1_NEWVIEW: " << PH1_NEWVIEW << ")" << std::endl;
-     }
+  // if (DEBUG) {
+  //   std::cout << "TEEverify result: " << teeverif_result << std::endl;
+  //   std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", rd.getPropv(): " << rd.getPropv() << ")" << std::endl;
+  //   std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ", PH1_NEWVIEW: " << PH1_NEWVIEW << ")" << std::endl;
+  //    }
 
 
   if (TEEverify(stats,nodes,just)
@@ -187,19 +197,24 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just, bool allBlocksR
   unsigned int seq = just.getRDataPara().getSeqNumber();
   // if (DEBUG) std::cout << "after getting stuff " << std::endl;
 
-  if (DEBUG) std::cout << "RDATA: " << just.getRDataPara().prettyPrint() << std::endl;
+  //if (DEBUG) std::cout << "RDATA: " << just.getRDataPara().prettyPrint() << std::endl;
+
+  if (blockPhases.find(h) != blockPhases.end() && blockPhases[h] == ph) {
+    if (DEBUG) std::cout << "Block with hash " << h.prettyPrint() << " has already been voted for in phase " << ph << std::endl;
+    return Just(false, RDataPara(), Signs());
+  }
 
   bool qsize_result = just.getSigns().getSize() == this->qsize;
   bool teeverif_result = TEEverify(stats, nodes, just);
   bool eq_views_result = this->view == v;
   bool eq_phases_result = ph == PH1_PREPARE || ph == PH1_PRECOMMIT;
 
-  if (DEBUG) {
-    std::cout << "qsize result: " << qsize_result << " (just.getSigns().getSize(): " << just.getSigns().getSize() << ", this->qsize: " << this->qsize << ")" << std::endl;
-    std::cout << "TEEverify result: " << teeverif_result << std::endl;
-    std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", v: " << v << ")" << std::endl;
-    std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ")" << std::endl;
-    }
+  // if (DEBUG) {
+  //   std::cout << "qsize result: " << qsize_result << " (just.getSigns().getSize(): " << just.getSigns().getSize() << ", this->qsize: " << this->qsize << ")" << std::endl;
+  //   std::cout << "TEEverify result: " << teeverif_result << std::endl;
+  //   std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", v: " << v << ")" << std::endl;
+  //   std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ")" << std::endl;
+  //   }
 
   if (qsize_result
       && teeverif_result

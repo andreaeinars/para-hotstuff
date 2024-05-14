@@ -317,7 +317,17 @@ struct MsgVerifyPara { // TODO: Actually implement this
     return false;
   }
   std::string prettyPrint() {
-    return "VERIFY[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]"; //AE-TODO add block hashes to print
+    std::string result = "VERIFY[" + rdata.prettyPrint() + "," + signs.prettyPrint() + ", Hashes(" + std::to_string(blockHashes.size()) + "): ";
+    for (auto &hash : blockHashes) {
+        result += hash.prettyPrint() + ", ";
+    }
+    if (!blockHashes.empty()) {
+        result.pop_back(); // Remove the last comma
+        result.pop_back(); // Remove the last space
+    }
+    result += "]";
+    return result;
+    // return "VERIFY[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]"; //AE-TODO add block hashes to print
   }
   unsigned int sizeMsg() const { 
     unsigned int size = sizeof(RDataPara) + sizeof(Signs);

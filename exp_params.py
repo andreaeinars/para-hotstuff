@@ -2,11 +2,11 @@ import multiprocessing
 from datetime import datetime
 
 ## Parameters
-faults       = [1] #[1,2,4,10] #[1,2,4,10,20,30,40] #[1,2,4,6,8,10,12,14,20,30] # list of numbers of faults
-repeats      = 1 #10 #50 #5 #100 #2     # number of times to repeat each experiment
+faults       = [1,2,4,10] #[1,2,4,10] #[1,2,4,10,20,30,40] #[1,2,4,6,8,10,12,14,20,30] # list of numbers of faults
+repeats      = 2 #10 #50 #5 #100 #2     # number of times to repeat each experiment
 repeatsL2    = 1
 #
-numViews     = 30     # number of views in each run
+numViews     = 15     # number of views in each run
 cutOffBound  = 60     # stop experiment after some time
 #
 numClients   = 1     # number of clients
@@ -35,6 +35,7 @@ showLegend1  = True
 showLegend2  = False
 plotBasic    = True
 plotChained  = True
+plotPara     = True
 displayPlot  = True # to display a plot once it is generated
 showYlabel   = True
 displayApp   = "open"

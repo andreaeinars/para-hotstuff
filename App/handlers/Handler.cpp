@@ -8,7 +8,11 @@ std::string statsVals;             // Throuput + latency + handle + crypto
 std::string statsDone;             // done recording the stats
 Time curTime;
 Stats stats;                   // To collect statistics
-std::string Handler::nfo() { return "[" + std::to_string(this->myid) + "]"; }
+// std::string Handler::nfo() { return "[" + std::to_string(this->myid) + "]"; }
+std::string Handler::nfo() {
+    std::string role = amCurrentLeader() ? "L" : "R";
+    return "[" + role + std::to_string(this->myid) + "]";
+}
 
 TrustedFun tf;
 TrustedCh tp; // 'p' for pipelined
@@ -187,30 +191,6 @@ pnet(pec,pconf), cnet(cec,cconf) {
 // Common Protocol Functions
 // ------------------------------------------------------------
 
-// Hash getHash(hash_t *h) { // loads a Hash from [h]
-//   return Hash(h->set,h->hash);
-// }
-
-// RData getRData (rdata_t *d) {
-//   Hash   proph = getHash(&(d->proph));
-//   View   propv = d->propv;
-//   Hash   justh = getHash(&(d->justh));
-//   View   justv = d->justv;
-//   Phase1 phase = (Phase1)d->phase;
-//   RData  data(proph,propv,justh,justv,phase);
-//   return data;
-// }
-
-// Just getJust(just_t *j) { // loads a Just from [j]
-//   RData rdata = getRData(&(j->rdata));
-//   Sign  a[MAX_NUM_SIGNATURES];
-//   for (int i = 0; i < MAX_NUM_SIGNATURES; i++) {
-//     a[i]=Sign(j->signs.signs[i].set,j->signs.signs[i].signer,j->signs.signs[i].sign);
-//   }
-//   Signs signs(j->signs.size,a);
-//   return Just((bool)j->set,rdata,signs);
-// }
-
 void Handler::printClientInfo() {
   for (Clients::iterator it = this->clients.begin(); it != this->clients.end(); it++) {
     CID cid = it->first;
@@ -244,12 +224,26 @@ void Handler::recordStats() {
   unsigned int quant1 = 0;
   unsigned int quant2 = 10;
 
-  // Throughput
+   // Throughput
   Times totv = stats.getTotalViewTime(quant2);
+  #if defined(BASIC_BASELINE) || defined(CHAINED_BASELINE)
   double kopsv = ((totv.n)*(MAX_NUM_TRANSACTIONS)*1.0) / 1000;
   double secsView = /*time*/ totv.tot / (1000*1000);
   if (DEBUG0) std::cout << KBLU << nfo() << "VIEW|view=" << this->view << ";Kops=" << kopsv << ";secs=" << secsView << ";n=" << totv.n << KNRM << std::endl;
   double throughputView = kopsv/secsView;
+  #elif defined(PARALLEL_HOTSTUFF)
+  double kopsv = ((totv.n)*(MAX_NUM_TRANSACTIONS)*(maxBlocksInView)*1.0) / 1000;
+  double secsView = totv.tot / (1000*1000);
+  if (DEBUG0) std::cout << KBLU << nfo() << "VIEW|view=" << this->view << ";Kops=" << kopsv << ";secs=" << secsView << ";n=" << totv.n << KNRM << std::endl;
+  double throughputView = kopsv / secsView;
+  #endif
+
+  // Throughput
+  // Times totv = stats.getTotalViewTime(quant2);
+  // double kopsv = ((totv.n)*(MAX_NUM_TRANSACTIONS)*1.0) / 1000;
+  // double secsView = /*time*/ totv.tot / (1000*1000);
+  // if (DEBUG0) std::cout << KBLU << nfo() << "VIEW|view=" << this->view << ";Kops=" << kopsv << ";secs=" << secsView << ";n=" << totv.n << KNRM << std::endl;
+  // double throughputView = kopsv/secsView;
 
   // Debugging - handle
   Times toth = stats.getTotalHandleTime(quant1);
@@ -258,11 +252,21 @@ void Handler::recordStats() {
   if (DEBUG0) std::cout << KBLU << nfo() << "HANDLE|view=" << this->view << ";Kops=" << kopsh << ";secs=" << secsHandle << ";n=" << toth.n << KNRM << std::endl;
   // Latency
 
+  // #if defined (CHAINED_BASELINE)
+  //   double latencyView = (stats.getExecTimeAvg() / 1000)/* milli-seconds spent on views */;
+  // #else
+  //   double latencyView = (totv.tot/totv.n / 1000)/* milli-seconds spent on views */;
+  // #endif
+
+  // Latency
   #if defined (CHAINED_BASELINE)
     double latencyView = (stats.getExecTimeAvg() / 1000)/* milli-seconds spent on views */;
+  #elif defined(PARALLEL_HOTSTUFF)
+    double latencyView = (totv.tot / totv.n) / (1000 * maxBlocksInView); /* Average time per block in milliseconds */
   #else
     double latencyView = (totv.tot/totv.n / 1000)/* milli-seconds spent on views */;
   #endif
+  
   
   // Handle
   double handle = (toth.tot / 1000); /* milli-seconds spent on handling messages */
@@ -1423,8 +1427,20 @@ void Handler::initiateVerifyPara(Just just){
   //Create a list of all hashes from the view of just, and send to all replicas
   std::vector<Hash> hashes;
   View view = just.getRDataPara().getPropv();
-  auto it = this->pblocks.find(view);
+  View justv = just.getRDataPara().getJustv();
+  if (DEBUG) std::cout << KBLU << nfo() << "initiating verify for view=" << view << " and justv=" << justv << KNRM << std::endl;
+  auto it = this->pblocks.find(justv);
+  //print all blocks in pblocks
+  // if (DEBUG) {
+  //   for (auto &p : this->pblocks) {
+  //     std::cout << KBLU << nfo() << "view=" << p.first << KNRM << std::endl;
+  //     for (auto &b : p.second) {
+  //       std::cout << KBLU << nfo() << b.prettyPrint() << KNRM << std::endl;
+  //     }
+  //   }
+  // }
   if (it != this->pblocks.end()) {
+      if (DEBUG) std::cout << KBLU << nfo() << "found blocks for view=" << justv << KNRM << std::endl;
       std::vector<PBlock> &blocks = it->second;
       // Sort blocks based on their sequence numbers
       std::sort(blocks.begin(), blocks.end(), [](PBlock &a, PBlock &b) {
@@ -1454,7 +1470,8 @@ void Handler::initiateVerifyPara(Just just){
 void Handler::preparePara(Just just) { // For leader to do begin a view (prepare phase)
   auto start = std::chrono::steady_clock::now();
   // We first create a block that extends the highest prepared block
-  for (int i = 0; i < maxBlocksInView; ++i) {
+  localSeq = 0; 
+  for (int i = 0; i <= maxBlocksInView; ++i) {
     PBlock block = createNewBlockPara(just.getRDataPara().getJusth());
     localSeq++; // AE-TODO 
 
@@ -1561,6 +1578,7 @@ void Handler::initiateCommitPara(RDataPara rdata) { // For leaders to generate a
 // AE-TODO
 void Handler::respondToProposalPara(Just justNv, PBlock block) {
   // We create our own justification for that block
+ 
   Just newJustPrep = callTEEpreparePara(block, justNv);
   if (newJustPrep.isSet()) {
     if (DEBUG1) std::cout << KBLU << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
@@ -1655,22 +1673,31 @@ Just Handler::callTEEstorePara(Just j, bool allBlocksReceived) {
 }
 
 void Handler::executeRDataPara(RDataPara rdata) {
-  auto endView = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(endView - startView).count();
-  startView = endView;
-  stats.incExecViews();
-  stats.addTotalViewTime(time);
-  if (this->transactions.empty()) { this->viewsWithoutNewTrans++; } else { this->viewsWithoutNewTrans = 0; }
+  // auto endView = std::chrono::steady_clock::now();
+  // double time = std::chrono::duration_cast<std::chrono::microseconds>(endView - startView).count();
+  // startView = endView;
+  // stats.incExecViews();
+  // stats.addTotalViewTime(time);
+  // if (this->transactions.empty()) { this->viewsWithoutNewTrans++; } else { this->viewsWithoutNewTrans = 0; }
 
   // Execute
   // TODO: We should wait until we received the block corresponding to the hash to execute
-  if (DEBUG0 && DEBUGE) std::cout << KRED << nfo() << "R-EXECUTE(" << this->view << "/" << this->maxViews << ":" << time << ")" << stats.toString() << KNRM << std::endl;
-  replyHash(rdata.getProph());
+  if (DEBUG0 && DEBUGE) std::cout << KRED << nfo() << "R-EXECUTE(seq: " << rdata.getSeqNumber() << " v: "<< this->view << "/" <<  "/" << this->maxViews << ":" << time << ")" << stats.toString() << KNRM << std::endl;
+  replyHashPara(rdata.getProph(), rdata.getSeqNumber());
 
-  if (timeToStop()) {
+  if ((timeToStop()) && (rdata.getSeqNumber() == maxBlocksInView)){
     recordStats();
   } else if (rdata.getSeqNumber() == maxBlocksInView) {
-    startNewView();
+    auto endView = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::microseconds>(endView - startView).count();
+    startView = endView;
+    stats.incExecViews();
+    stats.addTotalViewTime(time);
+    if (this->transactions.empty()) { this->viewsWithoutNewTrans++; } else { this->viewsWithoutNewTrans = 0; }
+
+    startNewViewPara();
+  } else {
+    if (DEBUG) std::cout << KBLU << nfo() << "waiting for next block" << KNRM << std::endl;
   }
 }
 
@@ -1690,7 +1717,19 @@ void Handler::handleEarlierMessagesPara() {
 
 //AE-TODO
 void Handler::startNewViewPara() { 
-  Just just = callTEEsignPara();
+  //tpara.increment_node_phase();
+  Just just = callTEEsignPara(); // Should bring node to new view phase
+    // Increment the phase of the TEE, should go to new view 
+  //print the whole just
+  if (DEBUG) std::cout << KBLU << nfo() << "Just : " << just.prettyPrint() << KNRM << std::endl;
+  if (DEBUG) std::cout << KBLU << nfo() << " my view: " << this->view << KNRM << std::endl;
+  // if (DEBUG) std::cout << KBLU << nfo() << "Just phase: " << just.getRDataPara().getPhase().prettyPrint() << KNRM << std::endl;
+  // if (DEBUG) std::cout << KBLU << nfo() << "Just seq: " << just.getRDataPara().getSeqNumber() << KNRM << std::endl;
+  // if (just.getRDataPara().getPropv() <= this->view) { 
+    //tpara.increment_node_phase(); 
+  //   just = callTEEsignPara(); 
+  // } // generate justifications until we can generate one for the next view
+
   while (just.getRDataPara().getPropv() <= this->view) { just = callTEEsignPara(); } // generate justifications until we can generate one for the next view
   this->view++; // increment the view -> THE NODE HAS NOW MOVED TO THE NEW-VIEW
   setTimer(); // We start the timer
@@ -1700,14 +1739,14 @@ void Handler::startNewViewPara() {
   if (just.getRDataPara().getPropv() == this->view && just.getRDataPara().getPhase() == PH1_NEWVIEW) {
     MsgNewViewPara msg(just.getRDataPara(),just.getSigns());
     if (amCurrentLeader()) {
-      handleEarlierMessagesPara();
+      //handleEarlierMessagesPara();
       handleNewViewPara(msg);
     }
     else {
       PID leader = getCurrentLeader();
       Peers recipients = keep_from_peers(leader);
       sendMsgNewViewPara(msg,recipients);
-      handleEarlierMessagesPara();
+      //handleEarlierMessagesPara();
     }
   } else {
     // Something wrong happened
@@ -1732,10 +1771,10 @@ std::vector<unsigned int> Handler::getMissingSeqNumbersForJust(Just justNV) {
     const std::vector<PBlock> &blocks = it->second;
     std::set<unsigned int> seqNumbersInBlocks;// Create a set of sequence numbers in the blocks vector
     for (PBlock block : blocks) {
-        std::optional<unsigned int> blockSeqNumberOpt = block.getSeqNumber();
-        if (blockSeqNumberOpt.has_value()) {
-            seqNumbersInBlocks.insert(blockSeqNumberOpt.value());
-        }
+        unsigned int blockSeqNumber = block.getSeqNumber();
+        //if (blockSeqNumberOpt.has_value()) {
+        seqNumbersInBlocks.insert(blockSeqNumber);
+        //}
     }
     // Check that all sequence numbers from 0 to seqNumber are present
     for (unsigned int i = 0; i <= seqNumber; ++i) {
@@ -1799,12 +1838,27 @@ void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for 
   // Print the things in one line:
   if (DEBUG) std::cout << KBLU << nfo() << "verifiedJust: " << verifiedJust.prettyPrint() << " justNV: " << justNV.prettyPrint() << KNRM << std::endl;
 
+  auto &blocksInView = this->pblocks[this->view];
+  auto seqNumber = b.getSeqNumber();
+  if (DEBUG) std::cout << KBLU << nfo() << "checking if exists seqNumber: " << seqNumber << KNRM << std::endl;
+  bool seqNumberExists = std::any_of(blocksInView.begin(), blocksInView.end(),
+                                     [seqNumber](PBlock &b) { return b.getSeqNumber() == seqNumber; });
+
+                                
+
+  if (seqNumberExists) {
+    if (DEBUG2) std::cout << KBLU << nfo() << "block with sequence number " << seqNumber << " already exists in this view, can't vote for it!!" << this->view << KNRM << std::endl;
+    // return;
+  } else {
+    if (DEBUG2) std::cout << KBLU << nfo() << "block with sequence number " << seqNumber << " does not exist in this view, can vote for it!!" << this->view << KNRM << std::endl;
+  }
+
   if (rdataNV.getPropv() >= this->view
       && vm
       && justIsVerified
       // && b.extends(rdataNV.getJusth()) // AE-TODO 
       ) { // AE-TODO here i need to check whether the just is the one i have saved
-    if (rdataNV.getPropv() == this->view) { // If the message is for the current view we act upon it right away
+    if (rdataNV.getPropv() == this->view && !seqNumberExists) { // If the message is for the current view we act upon it right away
       respondToProposalPara(justNV,b);
     } else{ // If the message is for later, we store it
       if (DEBUG1) std::cout << KMAG << nfo() << "storing:" << msg.prettyPrint() << KNRM << std::endl;
@@ -1849,7 +1903,7 @@ void Handler::handle_ldrrecover_para(MsgLdrRecoverPara msg, const PeerNet::conn_
 
 //AE-TODO
 void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
-  std::cout << KMAG << nfo() << "In VERIFY" << time << KNRM << std::endl;
+  // std::cout << KMAG << nfo() << "In VERIFY" << time << KNRM << std::endl;
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgVerifyPara:" << time << KNRM << std::endl;
 
   auto start = std::chrono::steady_clock::now();
@@ -1902,8 +1956,9 @@ void Handler::handlePreparePara(MsgPreparePara msg) { // This is for both for th
               initiatePreparePara(rdata);
             }
         } else { // Not the leader
-            if (signs.getSize() == this->qsize) { // AE-TODO check if we have already voted for this sequence number
+            if ((signs.getSize() == this->qsize) && (!this->log.hasPrepForSeq(this->view, seqNumber)) ) { // check if we have already voted for this sequence number
                 if(DEBUG) std::cout << KBLU << nfo() << "I am backup and about to vote for prepare, e.g. precommit vote" << KNRM << std::endl;
+                this->log.storePrepPara(msg);
                 respondToPrepareJustPara(Just(rdata, signs)); //This ixsx actually a precommit message with prepare qc in it
             }
         }
@@ -1949,7 +2004,7 @@ void Handler::handlePrecommitPara(MsgPreCommitPara msg) {
         initiatePrecommitPara(rdata);
       }
     } else { // As a backup:
-      if (signs.getSize() == this->qsize) {
+      if ((signs.getSize() == this->qsize )&& (!this->log.hasPrecommitForSeq(this->view, seqNumber)) )   { // Check if we have already voted for seq number in this view
         this->log.storePcPara(msg);
         respondToPreCommitJustPara(Just(rdata,signs));
       }
@@ -2019,4 +2074,30 @@ void Handler::handleCommitPara(MsgCommitPara msg) {
 //AE-TODO
 void Handler::handle_commit_para(MsgCommitPara msg, const PeerNet::conn_t &conn) {
   handleCommitPara(msg);
+}
+
+void Handler::replyHashPara(Hash hash, unsigned int seqNumber) { // send replies corresponding to 'hash'
+  std::map<View, std::vector<PBlock>>::iterator it = this->pblocks.find(this->view);
+  if (it != this->pblocks.end()) {
+      std::vector<PBlock> blocks = it->second;
+      bool blockFound = false;
+      for (PBlock& pblock : blocks) {
+          if (pblock.getSeqNumber() == seqNumber) {
+              blockFound = true;
+              if (pblock.hash() == hash) {
+                  if (DEBUG1) std::cout << KBLU << nfo() << "found block for view=" << this->view << " with seqNumber=" << seqNumber << ":" << pblock.prettyPrint() << KNRM << std::endl;
+                  replyTransactions(pblock.getTransactions());
+              } else {
+                  if (DEBUG1) std::cout << KBLU << nfo() << "recorded block but incorrect hash for view " << this->view << " with seqNumber=" << seqNumber << KNRM << std::endl;
+                  if (DEBUG1) std::cout << KBLU << nfo() << "checking hash: " << hash.toString() << " against block hash: " << pblock.hash().toString() << KNRM << std::endl;
+              }
+              break;
+          }
+      }
+      if (!blockFound) {
+          if (DEBUG1) std::cout << KBLU << nfo() << "no block with seqNumber=" << seqNumber << " recorded for view " << this->view << KNRM << std::endl;
+      }
+  } else {
+      if (DEBUG1) std::cout << KBLU << nfo() << "no blocks recorded for view " << this->view << KNRM << std::endl;
+  }
 }

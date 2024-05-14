@@ -786,3 +786,14 @@ bool Log::hasPrecommitForSeq(View view, unsigned int seqNumber) {
   }
   return false;
 }
+
+
+bool Log::hasPrepForSeq(View view, unsigned int seqNumber) {
+  auto it = this->preparesPara.find(view);
+  if (it != this->preparesPara.end()) {
+    const std::map<unsigned int, std::set<MsgPreparePara>>& seqMap = it->second;
+    auto seqIt = seqMap.find(seqNumber);
+    return seqIt != seqMap.end() && !seqIt->second.empty();
+  }
+  return false;
+}
