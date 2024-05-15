@@ -1523,7 +1523,7 @@ void Handler::initiatePreparePara(RDataPara rdata) { // For leaders to forward p
   if (DEBUG) std::cout << KBLU << nfo() << "sent prepare-para certificate to backups (" << msgPrepPara.prettyPrint() << ")" << KNRM << std::endl;
 
   // The leader also stores the prepare message
-  Just justPcPara = callTEEstorePara(Just(rdata,signs), false);
+  Just justPcPara = callTEEstorePara(Just(rdata,signs));
   MsgPreCommitPara msgPcPara(justPcPara.getRDataPara(),justPcPara.getSigns());
 
   // We store our own pre-commit in the log
@@ -1539,19 +1539,19 @@ void Handler::initiatePrecommitPara(RDataPara rdata) { // For leaders to generat
   Peers recipients = remove_from_peers(this->myid);
   sendMsgPreCommitPara(msgPcPara,recipients);
 
-  bool allBlocksReceived = true;
-  for (unsigned int i = 0; i <= rdata.getSeqNumber(); ++i) {
-    if (!this->log.hasPrecommitForSeq(this->view, i)) {
-      allBlocksReceived = false;
-      break;
-    }
-  }
+  // bool allBlocksReceived = true;
+  // for (unsigned int i = 0; i <= rdata.getSeqNumber(); ++i) {
+  //   if (!this->log.hasPrecommitForSeq(this->view, i)) {
+  //     allBlocksReceived = false;
+  //     break;
+  //   }
+  // }
   Just justComPara;
-  if (allBlocksReceived) {
-    justComPara = callTEEstorePara(Just(rdata,signs), true);
-  } else {
-    justComPara = callTEEstorePara(Just(rdata,signs), false);
-  }
+  // if (allBlocksReceived) {
+  justComPara = callTEEstorePara(Just(rdata,signs));
+  // } else {
+  //   justComPara = callTEEstorePara(Just(rdata,signs), false);
+  // }
 
   if (DEBUG) std::cout << KBLU << nfo() << "sent pre-commit-para to backups (" << msgPcPara.prettyPrint() << ")" << KNRM << std::endl;
   
@@ -1571,7 +1571,30 @@ void Handler::initiateCommitPara(RDataPara rdata) { // For leaders to generate a
     sendMsgCommitPara(msgComPara,recipients);
     if (DEBUG) std::cout << KBLU << nfo() << "sent commit-para certificate to backups (" << msgComPara.prettyPrint() << ")" << KNRM << std::endl;
 
-    executeRDataPara(rdata); // We can now possibly execute the block -> AE-TODO check if its on a prefix
+    int highestContinuousSeq = 0;
+    for (int i = 0; i <= rdata.getSeqNumber(); ++i) {
+      if (this->log.hasCommitForSeq(this->view, i)) {
+        highestContinuousSeq = i;
+      } else {
+        break;  
+      }
+    }
+
+    // if (DEBUG) std::cout << KBLU << nfo() << "highestContinuousSeq: " << highestContinuousSeq << KNRM << std::endl;
+    // if (DEBUG) std::cout << KBLU << nfo() << "lastExecutedSeq: " << lastExecutedSeq << KNRM << std::endl;
+
+    // AE-TODO I need to make sure to execute all the blocks up to the highest continuous sequence number
+    if (highestContinuousSeq >= lastExecutedSeq) {
+      // if (DEBUG) std::cout << KBLU << nfo() << "executing blocks up to " << highestContinuousSeq << KNRM << std::endl;
+      for (int i = lastExecutedSeq + 1; i <= highestContinuousSeq; ++i) {
+        RDataPara rdata = this->log.getCommitForSeq(this->view, i).rdata;
+        executeRDataPara(rdata);
+      }
+      // if (DEBUG) std::cout << KBLU << nfo() << "updating lastExecutedSeq from " << lastExecutedSeq << " to " << highestContinuousSeq << KNRM << std::endl;
+      // lastExecutedSeq = highestContinuousSeq;
+    }
+
+    // executeRDataPara(rdata); // We can now possibly execute the block -> AE-TODO check if its on a prefix
   }
 }
 
@@ -1594,10 +1617,10 @@ void Handler::respondToProposalPara(Just justNv, PBlock block) {
 
 void Handler::respondToPrepareJustPara(Just justPrep) { // For backups to respond to prepare certificates received from the leader
   if (DEBUG) std::cout << KBLU << nfo() << "received prepare certificate (" << justPrep.prettyPrint() << ")" << KNRM << std::endl;
-  Just justPc = callTEEstorePara(justPrep, false);
-  if (DEBUG) std::cout << KBLU << nfo() << "after tee store, justPc: " << justPc.prettyPrint() << KNRM << std::endl;
+  Just justPc = callTEEstorePara(justPrep);
+  // if (DEBUG) std::cout << KBLU << nfo() << "after tee store, justPc: " << justPc.prettyPrint() << KNRM << std::endl;
   MsgPreCommitPara msgPc(justPc.getRDataPara(),justPc.getSigns());
-  if (DEBUG) std::cout << KBLU << nfo() << "msgPC: " << msgPc.prettyPrint() << KNRM << std::endl;
+  // if (DEBUG) std::cout << KBLU << nfo() << "msgPC: " << msgPc.prettyPrint() << KNRM << std::endl;
   Peers recipients = keep_from_peers(getCurrentLeader());
   sendMsgPreCommitPara(msgPc,recipients);
   if (DEBUG) std::cout << KBLU << nfo() << "sent pre-commit para vote (answering prepare cert/precommit message) (" << msgPc.prettyPrint() << ") to leader" << KNRM << std::endl;
@@ -1605,23 +1628,30 @@ void Handler::respondToPrepareJustPara(Just justPrep) { // For backups to respon
 
 void Handler::respondToPreCommitJustPara(Just justPc) { // For backups to respond to pre-commit certificates received from the leader
   unsigned int seqNumber = justPc.getRDataPara().getSeqNumber();
-  bool allBlocksReceived = true;
-  for (unsigned int i = 0; i <= seqNumber; ++i) {
-    if (DEBUG) std::cout << KBLU << nfo() << "checking if we have precommit for seq " << i << KNRM << std::endl;
-    if (!this->log.hasPrecommitForSeq(this->view, i)) {
-      if (DEBUG) std::cout << KBLU << nfo() << "no precommit for seq " << i << KNRM << std::endl;
-      allBlocksReceived = false;
-      break;
-    }
-  }
+  // bool allBlocksReceived = true;
+  // for (unsigned int i = 0; i <= seqNumber; ++i) {
+  //   // if (DEBUG) std::cout << KBLU << nfo() << "checking if we have precommit for seq " << i << KNRM << std::endl;
+  //   if (!this->log.hasPrecommitForSeq(this->view, i)) {
+  //     // if (DEBUG) std::cout << KBLU << nfo() << "no precommit for seq " << i << KNRM << std::endl;
+  //     allBlocksReceived = false;
+  //     break;
+  //   }
+  // }
+  // unsigned int highestSeqNumber = seqNumber;
+  // if (allBlocksReceived) {
+  //     while (this->log.hasPrecommitForSeq(this->view, highestSeqNumber + 1)) {
+  //         ++highestSeqNumber;
+  //         if (DEBUG) std::cout << KBLU << nfo() << "found additional precommit for seq " << highestSeqNumber << KNRM << std::endl;
+  //     }
+  // }
   Just justComPara;
-  if (allBlocksReceived) {
-    if (DEBUG) std::cout << KBLU << nfo() << "all blocks received" << KNRM << std::endl;
-    justComPara = callTEEstorePara(justPc, true);
-  } else {
-    if (DEBUG) std::cout << KBLU << nfo() << "not all blocks received" << KNRM << std::endl;
-    justComPara = callTEEstorePara(justPc, false);
-  }
+  // if (allBlocksReceived) {
+  // if (DEBUG) std::cout << KBLU << nfo() << "all blocks received up to highest seq " << highestSeqNumber << KNRM << std::endl;
+  justComPara = callTEEstorePara(justPc);
+  // } else {
+  //   if (DEBUG) std::cout << KBLU << nfo() << "not all blocks received" << KNRM << std::endl;
+  //   justComPara = callTEEstorePara(justPc);
+  // }
   MsgCommitPara msgCom(justComPara.getRDataPara(),justComPara.getSigns());
   Peers recipients = keep_from_peers(getCurrentLeader());
   sendMsgCommitPara(msgCom,recipients);
@@ -1662,9 +1692,9 @@ Just Handler::callTEEpreparePara(PBlock block, Just j) {
 }
 
 // AE-TODO
-Just Handler::callTEEstorePara(Just j, bool allBlocksReceived) {
+Just Handler::callTEEstorePara(Just j) {
   auto start = std::chrono::steady_clock::now();
-  Just just = tpara.TEEstore(stats,this->nodes,j, allBlocksReceived);
+  Just just = tpara.TEEstore(stats,this->nodes,j);
   auto end = std::chrono::steady_clock::now();
   double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   stats.addTEEstore(time);
@@ -1684,6 +1714,7 @@ void Handler::executeRDataPara(RDataPara rdata) {
   // TODO: We should wait until we received the block corresponding to the hash to execute
   if (DEBUG0 && DEBUGE) std::cout << KRED << nfo() << "R-EXECUTE(seq: " << rdata.getSeqNumber() << " v: "<< this->view << "/" <<  "/" << this->maxViews << ":" << time << ")" << stats.toString() << KNRM << std::endl;
   replyHashPara(rdata.getProph(), rdata.getSeqNumber());
+  lastExecutedSeq = rdata.getSeqNumber();
 
   if ((timeToStop()) && (rdata.getSeqNumber() == maxBlocksInView)){
     recordStats();
@@ -1732,6 +1763,8 @@ void Handler::startNewViewPara() {
 
   while (just.getRDataPara().getPropv() <= this->view) { just = callTEEsignPara(); } // generate justifications until we can generate one for the next view
   this->view++; // increment the view -> THE NODE HAS NOW MOVED TO THE NEW-VIEW
+  lastExecutedSeq = -1; // We reset the last executed sequence number
+  if (DEBUG) std::cout << KBLU << nfo() << "new view: " << this->view << "And last executed seq: " << lastExecutedSeq << KNRM << std::endl;
   setTimer(); // We start the timer
 
   // if the lastest justification we've generated is for what is now the current view (since we just incremented it)
@@ -1785,8 +1818,6 @@ std::vector<unsigned int> Handler::getMissingSeqNumbersForJust(Just justNV) {
     return missingSeqNumbers; 
 }
 
-
-//AE-TODO
 void Handler::handleNewViewPara(MsgNewViewPara msg) {
   // NEW-VIEW messages are received by leaders
   // Once a leader has received f+1 new-view messages, it creates a proposal out of the highest prepared block
@@ -1803,7 +1834,7 @@ void Handler::handleNewViewPara(MsgNewViewPara msg) {
       if (missing.empty()) {
         initiateVerifyPara(justNV);
       } else { 
-        initiateRecoverPara(missing, justNV);
+        initiateRecoverPara(missing, justNV); // AE-TODO Implement recover phase
       }
     }
   } else {
@@ -1815,12 +1846,10 @@ void Handler::handleNewViewPara(MsgNewViewPara msg) {
   stats.addTotalNvTime(time);
 }
 
-//AE-TODO
 void Handler::handle_newview_para(MsgNewViewPara msg, const PeerNet::conn_t &conn) {
   handleNewViewPara(msg);
 }
 
-//AE-TODO
 void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for backups
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
@@ -1843,9 +1872,7 @@ void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for 
   if (DEBUG) std::cout << KBLU << nfo() << "checking if exists seqNumber: " << seqNumber << KNRM << std::endl;
   bool seqNumberExists = std::any_of(blocksInView.begin(), blocksInView.end(),
                                      [seqNumber](PBlock &b) { return b.getSeqNumber() == seqNumber; });
-
-                                
-
+                             
   if (seqNumberExists) {
     if (DEBUG2) std::cout << KBLU << nfo() << "block with sequence number " << seqNumber << " already exists in this view, can't vote for it!!" << this->view << KNRM << std::endl;
     // return;
@@ -1871,39 +1898,32 @@ void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for 
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgLdrPreparePara:" << time << KNRM << std::endl;
 }
 
-//AE-TODO
 void Handler::handle_ldrprepare_para(MsgLdrPreparePara msg, const PeerNet::conn_t &conn) {
   if (DEBUGT) printNowTime("handling MsgLdrPrepare");
   handleLdrPreparePara(msg);
 }
 
-//AE-TODO
 void Handler::handleRecoverPara(MsgRecoverPara msg) { // This is only for backups
   std::cout << KMAG << nfo() << "In RECOVER" << time << KNRM << std::endl;
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgRecoverPara:" << time << KNRM << std::endl;
 }
 
-//AE-TODO
 void Handler::handle_recover_para(MsgRecoverPara msg, const PeerNet::conn_t &conn) {
   if (DEBUGT) printNowTime("handling MsgLdrPrepare");
   handleRecoverPara(msg);
 }
 
-//AE-TODO
 void Handler::handleLdrRecoverPara(MsgLdrRecoverPara msg) { // This is only for backups
   std::cout << KMAG << nfo() << "In Leader RECOVER" << time << KNRM << std::endl;
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgLdrRecoverPara:" << time << KNRM << std::endl;
 }
 
-//AE-TODO
 void Handler::handle_ldrrecover_para(MsgLdrRecoverPara msg, const PeerNet::conn_t &conn) {
   if (DEBUGT) printNowTime("handling MsgLdrPrepare");
   handleLdrRecoverPara(msg);
 }
 
-//AE-TODO
 void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
-  // std::cout << KMAG << nfo() << "In VERIFY" << time << KNRM << std::endl;
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgVerifyPara:" << time << KNRM << std::endl;
 
   auto start = std::chrono::steady_clock::now();
@@ -1914,7 +1934,7 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
   Signs signs = msg.signs;
 
   Just js = callTEEVerifyPara(Just(rdata,signs), blockHashes);
-  if (js.isSet()){ // AE-TODO not sure this works as intended
+  if (js.isSet()){ 
     verifiedJust = js;
     if (DEBUG) std::cout << KBLU << nfo() << "verified leader justification" << KNRM << std::endl;
   } else {
@@ -1922,13 +1942,11 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
   }
 }
 
-//AE-TODO
 void Handler::handle_verify_para(MsgVerifyPara msg, const PeerNet::conn_t &conn) {
   if (DEBUGT) printNowTime("handling MsgVerifyPara");
   handleVerifyPara(msg);
 }
 
-//AE-TODO
 void Handler::handlePreparePara(MsgPreparePara msg) { // This is for both for the leader and backups
     auto start = std::chrono::steady_clock::now();
     if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
@@ -1974,12 +1992,10 @@ void Handler::handlePreparePara(MsgPreparePara msg) { // This is for both for th
     stats.addTotalHandleTime(time);
 }
 
-//AE-TODO
 void Handler::handle_prepare_para(MsgPreparePara msg, const PeerNet::conn_t &conn) {
   handlePreparePara(msg);
 }
 
-//AE-TODO
 void Handler::handlePrecommitPara(MsgPreCommitPara msg) {
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
@@ -2021,12 +2037,10 @@ void Handler::handlePrecommitPara(MsgPreCommitPara msg) {
   stats.addTotalHandleTime(time);
 }
 
-//AE-TODO
 void Handler::handle_precommit_para(MsgPreCommitPara msg, const PeerNet::conn_t &conn) {
   handlePrecommitPara(msg);
 }
 
-//AE-TODO
 void Handler::handleCommitPara(MsgCommitPara msg) {
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
@@ -2050,12 +2064,34 @@ void Handler::handleCommitPara(MsgCommitPara msg) {
       }
     } else { // As a backup:
       if (signs.getSize() == this->qsize && verifyJustPara(Just(rdata,signs))) {
-        // AE-TODO If this block has been prefixlocked then we can execute
-        executeRDataPara(rdata);
+        this->log.storeComPara(msg);
+
+        int highestContinuousSeq = 0;
+        for (int i = 0; i <= rdata.getSeqNumber(); ++i) {
+          if (this->log.hasCommitForSeq(this->view, i)) {
+            highestContinuousSeq = i;
+          } else {
+            break;  
+          }
+        }
+
+        // if (DEBUG) std::cout << KBLU << nfo() << "highestContinuousSeq: " << highestContinuousSeq << KNRM << std::endl;
+        // if (DEBUG) std::cout << KBLU << nfo() << "lastExecutedSeq: " << lastExecutedSeq << KNRM << std::endl;
+
+        // AE-TODO I need to make sure to execute all the blocks up to the highest continuous sequence number
+        if (highestContinuousSeq >= lastExecutedSeq) {
+          for (int i = lastExecutedSeq + 1; i <= highestContinuousSeq; ++i) {
+            RDataPara rdata = this->log.getCommitForSeq(this->view, i).rdata;
+            executeRDataPara(rdata);
+          }
+          // if (DEBUG) std::cout << KBLU << nfo() << "updating lastExecutedSeq from " << lastExecutedSeq << " to " << highestContinuousSeq << KNRM << std::endl;
+          // lastExecutedSeq = highestContinuousSeq;
+        }
+       
       }
     }
   } else {
-    if (DEBUG1) std::cout << KMAG << nfo() << "discarded:" << msg.prettyPrint() << KNRM << std::endl;
+    //if (DEBUG1) std::cout << KMAG << nfo() << "discarded:" << msg.prettyPrint() << KNRM << std::endl;
     if (propv > this->view) {
       if (amLeaderOf(propv)) { // If we're the leader of that later view, we log the message
         // We don't need to verify it as the verification will be done inside the TEE
@@ -2071,7 +2107,6 @@ void Handler::handleCommitPara(MsgCommitPara msg) {
   stats.addTotalHandleTime(time);
 }
 
-//AE-TODO
 void Handler::handle_commit_para(MsgCommitPara msg, const PeerNet::conn_t &conn) {
   handleCommitPara(msg);
 }

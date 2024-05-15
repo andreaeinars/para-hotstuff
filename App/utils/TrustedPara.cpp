@@ -10,8 +10,10 @@
 TrustedPara::TrustedPara() {
   this->latestPreparedHash = Hash(true); // the genesis block
   this->latestPreparedView = 0;
+  this->latestPreparedSeqNumber = 0;
   this->prefixLockedHash = Hash(true); // the genesis block
   this->prefixLockedView = 0;
+  this->prefixLockedSeqNumber = 0;
   this->view   = 0;
   this->phase  = PH1_NEWVIEW;
   this->qsize  = 0;
@@ -20,8 +22,10 @@ TrustedPara::TrustedPara() {
 TrustedPara::TrustedPara(PID id, KEY priv, unsigned int q) {
   this->latestPreparedHash = Hash(true); // the genesis block
   this->latestPreparedView = 0;
+  this->latestPreparedSeqNumber = 0;
   this->prefixLockedHash = Hash(true); // the genesis block
   this->prefixLockedView = 0;
+  this->prefixLockedSeqNumber = 0;
   this->view   = 0;
   this->phase  = PH1_NEWVIEW;
   this->id     = id;
@@ -67,8 +71,8 @@ void TrustedPara::set_phase(Phase1 phase) {
   this->phase = phase;
 }
 
-Just TrustedPara::sign(Hash h1, Hash h2, View v2) {
-  RDataPara rdata(h1,this->view,h2,v2,this->phase, 0); //todo add sequnce number
+Just TrustedPara::sign(Hash h1, Hash h2, View v2, unsigned int seqNumber) {
+  RDataPara rdata(h1,this->view,h2,v2,this->phase, seqNumber); //todo add sequnce number
   Sign sign(this->priv,this->id,rdata.toString());
   Just just(rdata,sign);
   // increment_block_phase(h1);
@@ -93,7 +97,7 @@ Just TrustedPara::signBlock(Hash h1, Hash h2, View v2, unsigned int seqNumber) {
 
 Just TrustedPara::TEEsign(Stats &stats) {
   auto start = std::chrono::steady_clock::now();
-  Just j = sign(Hash(false),this->latestPreparedHash,this->latestPreparedView); // AE-TODO: Actuaclly implement this
+  Just j = sign(Hash(false),this->latestPreparedHash,this->latestPreparedView, this->latestPreparedSeqNumber); // AE-TODO: Actuaclly implement this
   auto end = std::chrono::steady_clock::now();
   double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   stats.addCryptoSignTime(time);
@@ -190,13 +194,11 @@ Just TrustedPara::TEEprepare(Stats &stats, Nodes nodes, PBlock block, Just just)
   return Just(false, RDataPara(), Signs());
 }
 
-Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just, bool allBlocksReceived) {
+Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
   Hash   h  = just.getRDataPara().getProph();
   View   v  = just.getRDataPara().getPropv();
   Phase1 ph = just.getRDataPara().getPhase();
   unsigned int seq = just.getRDataPara().getSeqNumber();
-  // if (DEBUG) std::cout << "after getting stuff " << std::endl;
-
   //if (DEBUG) std::cout << "RDATA: " << just.getRDataPara().prettyPrint() << std::endl;
 
   if (blockPhases.find(h) != blockPhases.end() && blockPhases[h] == ph) {
@@ -220,18 +222,35 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just, bool allBlocksR
       && teeverif_result
       && eq_views_result
       && eq_phases_result) {
-    this->latestPreparedHash=h; this->latestPreparedView=v;
+    if (seq > this->latestPreparedSeqNumber) {
+      this->latestPreparedHash=h; this->latestPreparedView=v; this->latestPreparedSeqNumber=seq;
+    }
     if (ph == PH1_PRECOMMIT) { 
-      // if we have all sequence numbers below this one, we lock it
+      precommitBlocks[seq] = h;
+      precommitBlocks[seq] = v;
+      precommitSeqNumbers.insert(seq);
+
       // AE-TODO: If we now have the prefix until some higher block, make sure to lock that one
-      if (allBlocksReceived) {
-        if (DEBUG) std::cout << "Locking block with seq number: " << seq << std::endl;
-        this->prefixLockedHash=h; this->prefixLockedView=v; 
-        }
-      } //   AE-TODO: Implement this
-    // return sign(h,Hash(),View());
+
+      unsigned int highestContinuousSeq = 0;
+      for (unsigned int i = 0; i <= *precommitSeqNumbers.rbegin(); ++i) {
+          if (precommitSeqNumbers.find(i) == precommitSeqNumbers.end()) {
+              break;
+          }
+          highestContinuousSeq = i;
+      }
+
+      if (highestContinuousSeq > this->prefixLockedSeqNumber) {
+        if (DEBUG) std::cout << "Locking block with seq number: " << highestContinuousSeq << std::endl;
+        this->prefixLockedHash = precommitBlocks[highestContinuousSeq];
+        this->prefixLockedView = precommitViews[highestContinuousSeq];
+        this->prefixLockedSeqNumber = highestContinuousSeq;
+      }
+    }
     return signBlock(h,Hash(),View(),seq);
   }
+  
   if (DEBUG) std::cout << "TEEstore failed" << std::endl;
   return Just(false, RDataPara(), Signs());
 }
+

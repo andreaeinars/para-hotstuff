@@ -406,6 +406,7 @@ struct MsgCommitPara {
   Signs signs;
   MsgCommitPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
   MsgCommitPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  MsgCommitPara() {}
   bool operator<(const MsgCommitPara& s) const {
     if (signs < s.signs) { return true; }
     return false;

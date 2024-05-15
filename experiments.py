@@ -610,7 +610,33 @@ parser.add_argument("--p1",         action="store_true",   help="sets runBasic t
 parser.add_argument("--p2",         action="store_true",   help="sets runChained to True (chained base protocol, i.e., chained HotStuff")
 parser.add_argument("--p3",         action="store_true",   help="sets runPara to True (new protocol, i.e., Parallel HotStuff")
 parser.add_argument("--pall",       action="store_true",   help="sets all runXXX to True, i.e., all protocols will be executed")
+parser.add_argument("--repeats",    type=int, default=0,   help="number of repeats per experiment")
+parser.add_argument("--netlat",     type=int, default=0,   help="network latency in ms")
+parser.add_argument("--netvar",     type=int, default=0,   help="variation of the network latency in ms")
+parser.add_argument("--views",      type=int, default=0,   help="number of views to run per experiments")
+parser.add_argument("--faults",     type=str, default="",  help="the number of faults to test, separated by commas: 1,2,3,etc.")
+parser.add_argument("--payload",    type=int, default=0,   help="size of payloads in Bytes")
 args = parser.parse_args()
+
+if args.views > 0:
+    numViews = args.views
+    print("SUCCESSFULLY PARSED ARGUMENT - the number of views is now:", numViews)
+
+if args.repeats > 0:
+    repeats = args.repeats
+    print("SUCCESSFULLY PARSED ARGUMENT - the number of repeats is now:", repeats)
+
+if args.netlat >= 0:
+    networkLat = args.netlat
+    print("SUCCESSFULLY PARSED ARGUMENT - the network latency (in ms) will be changed using netem to:", networkLat)
+
+if args.payload >= 0:
+    payloadSize = args.payload
+    print("SUCCESSFULLY PARSED ARGUMENT - the payload size will be:", payloadSize)
+
+if args.netvar >= 0:
+    networkVar = args.netvar
+    print("SUCCESSFULLY PARSED ARGUMENT - the variation of the network latency (in ms) will be changed using netem to:", networkVar)
 
 if args.docker:
     runDocker = True

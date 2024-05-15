@@ -77,6 +77,8 @@ class Handler {
   std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts;
   std::set<std::pair<View, unsigned int>> initiatedCommitCerts;
 
+  int lastExecutedSeq = -1;
+
   Just justNV;
   std::string nfo(); // used to print debugging info
 
@@ -213,7 +215,7 @@ class Handler {
 
   // AE-TODO is this necessary?
   Just callTEEsignPara();
-  Just callTEEstorePara(Just j, bool allBlocksReceived);
+  Just callTEEstorePara(Just j);
   Just callTEEpreparePara(PBlock block, Just j);
   Just callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes); 
 

@@ -88,6 +88,9 @@ class Log {
 
   bool hasPrecommitForSeq(View view, unsigned int seqNumber);
   bool hasPrepForSeq(View view, unsigned int seqNumber);
+  bool hasCommitForSeq(View view, unsigned int seqNumber);
+
+  MsgCommitPara getCommitForSeq(View view, unsigned int seqNumber);
 };
 
 #endif
