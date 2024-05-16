@@ -216,7 +216,7 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
   //   std::cout << "TEEverify result: " << teeverif_result << std::endl;
   //   std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", v: " << v << ")" << std::endl;
   //   std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ")" << std::endl;
-  //   }
+  // }
 
   if (qsize_result
       && teeverif_result

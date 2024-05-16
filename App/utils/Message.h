@@ -253,18 +253,55 @@ struct MsgRecoverPara { // TODO: Actually implement this
   RDataPara rdata;
   Signs signs;
   // For a replica include list of QCs 
+  std::vector<PBlock> blocks;  // List of blocks that the replica has
 
-  MsgRecoverPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
-  MsgRecoverPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  // MsgRecoverPara(const RDataPara &rdata, const Signs &signs, const std::vector<PBlock> &blocks) 
+  //   : rdata(rdata), signs(signs), blocks(blocks) { 
+  //     serialized << rdata << signs << blocks; 
+  //   }
+  // MsgRecoverPara(salticidae::DataStream &&s) { s >> rdata >> signs >> blocks; }
+
+  MsgRecoverPara(const RDataPara &rdata, const Signs &signs, const std::vector<PBlock> &blocks)
+    : rdata(rdata), signs(signs), blocks(blocks) { 
+      serialize(serialized); 
+    }
+
+  MsgRecoverPara(salticidae::DataStream &&s) {
+    deserialize(s);
+  }
+
+
   bool operator<(const MsgRecoverPara& s) const {
     if (signs < s.signs) { return true; }
     return false;
   }
   std::string prettyPrint() {
-    return "RECOVER[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+    std::string blocksStr;
+    for (auto &block : blocks) { blocksStr += block.prettyPrint() + ","; }
+    return "RECOVER[" + rdata.prettyPrint() + "," + signs.prettyPrint() + ",blocks=[" + blocksStr + "]]";
   }
-  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
-  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+
+  unsigned int sizeMsg() const { 
+    return sizeof(RDataPara) + sizeof(Signs) + blocks.size() * sizeof(PBlock); 
+  }
+   // void serialize(salticidae::DataStream &s) const { s << rdata << signs << blocks; }
+  void serialize(salticidae::DataStream &s) const { 
+    s << rdata << signs;
+    s << static_cast<uint32_t>(blocks.size());
+    for (const auto &block : blocks) {
+      s << block;
+    }
+  }
+
+  void deserialize(salticidae::DataStream &s) {
+    s >> rdata >> signs;
+    uint32_t size;
+    s >> size;
+    blocks.resize(size);
+    for (auto &block : blocks) {
+      s >> block;
+    }
+  }
 };
 
 struct MsgLdrRecoverPara { // TODO: Actually implement this
@@ -272,18 +309,55 @@ struct MsgLdrRecoverPara { // TODO: Actually implement this
   salticidae::DataStream serialized;
   RDataPara rdata;
   Signs signs;
-  // For a leader include list of sequence numbers its missing
-  MsgLdrRecoverPara(const RDataPara &rdata, const Signs &signs) : rdata(rdata),signs(signs) { serialized << rdata << signs; }
-  MsgLdrRecoverPara(salticidae::DataStream &&s) { s >> rdata >> signs; }
+  std::vector<unsigned int> missingSeqNumbers;  // List of missing sequence numbers
+
+  // MsgLdrRecoverPara(const RDataPara &rdata, const Signs &signs, const std::vector<unsigned int> &missingSeqNumbers) 
+  //   : rdata(rdata), signs(signs), missingSeqNumbers(missingSeqNumbers) { 
+  //     serialized << rdata << signs << missingSeqNumbers; 
+  //   }
+  // MsgLdrRecoverPara(salticidae::DataStream &&s) { s >> rdata >> signs >> missingSeqNumbers; }
+
+  MsgLdrRecoverPara(const RDataPara &rdata, const Signs &signs, const std::vector<unsigned int> &missingSeqNumbers)
+    : rdata(rdata), signs(signs), missingSeqNumbers(missingSeqNumbers) { 
+      serialize(serialized); 
+    }
+
+  MsgLdrRecoverPara(salticidae::DataStream &&s) {
+    deserialize(s);
+  }
+  
   bool operator<(const MsgLdrRecoverPara& s) const {
     if (signs < s.signs) { return true; }
     return false;
   }
+
   std::string prettyPrint() {
-    return "RECOVER[" + rdata.prettyPrint() + "," + signs.prettyPrint() + "]";
+    std::string missingStr;
+    for (auto seq : missingSeqNumbers) { missingStr += std::to_string(seq) + ","; }
+    return "LDR_RECOVER[" + rdata.prettyPrint() + "," + signs.prettyPrint() + ",missingSeqNumbers=[" + missingStr + "]]";
   }
-  unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)); }
-  void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
+  // unsigned int sizeMsg() { return (sizeof(RDataPara) + sizeof(Signs)) + sizeof(std::vector<unsigned int>) + missingSeqNumbers.size() * sizeof(unsigned int); }
+  unsigned int sizeMsg() const { 
+    return sizeof(RDataPara) + sizeof(Signs) + missingSeqNumbers.size() * sizeof(unsigned int); 
+  }
+  // void serialize(salticidae::DataStream &s) const { s << rdata << signs << missingSeqNumbers; }
+  void serialize(salticidae::DataStream &s) const { 
+    s << rdata << signs;
+    s << static_cast<uint32_t>(missingSeqNumbers.size());
+    for (const auto &seq : missingSeqNumbers) {
+      s << seq;
+    }
+  }
+
+  void deserialize(salticidae::DataStream &s) {
+    s >> rdata >> signs;
+    uint32_t size;
+    s >> size;
+    missingSeqNumbers.resize(size);
+    for (auto &seq : missingSeqNumbers) {
+      s >> seq;
+    }
+  }
 };
 
 

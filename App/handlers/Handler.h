@@ -47,7 +47,7 @@ class Handler {
   unsigned int localSeq = 0;     // local sequence number
   unsigned int maxViews = 3;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
-  unsigned int maxBlocksInView = 10;
+  unsigned int maxBlocksInView = 3;
 
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
@@ -70,12 +70,11 @@ class Handler {
   Log log; // log of messages
 
   // Because now there can be multiple justifications for multiple blocks
-  // std::map<View, std::map<unsigned int, std::vector<Just>>> prepareJustsPara;
-  // std::map<View, std::map<unsigned int, std::vector<Just>>> precommitJustsPara;
-  // std::map<View, std::map<unsigned int, std::vector<Just>>> commitJustsPara;
   std::set<std::pair<View, unsigned int>> initiatedPrepareCerts;
   std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts;
   std::set<std::pair<View, unsigned int>> initiatedCommitCerts;
+
+  std::map<View, unsigned int> recoverResponses;
 
   int lastExecutedSeq = -1;
 
