@@ -1407,7 +1407,7 @@ PBlock Handler::createNewBlockPara(Hash hash) {
     trans[i]=Transaction();
     i++;
   }
-  return PBlock(hash,size,localSeq,trans);  // AE-TODO Actually use sequence number
+  return PBlock(hash,size,localSeq,trans);  
 }
 
 void Handler::initiateRecoverPara(std::vector<unsigned int> missing, Just just){
@@ -1455,22 +1455,33 @@ void Handler::preparePara(Just just) { // For leader to do begin a view (prepare
   auto start = std::chrono::steady_clock::now();
   // We first create a block that extends the highest prepared block
   localSeq = 0; 
-  for (int i = 0; i <= maxBlocksInView; ++i) {
-    PBlock block = createNewBlockPara(just.getRDataPara().getJusth());
-    localSeq++; // AE-TODO 
+  PBlock prevBlock;
 
+
+  for (int i = 0; i <= maxBlocksInView; ++i) {
+    PBlock block;
+    if (i == 0) {
+      // First block extends from the justification hash of the last agreed state
+      block = createNewBlockPara(just.getRDataPara().getJusth());
+    } else {
+      // Subsequent blocks extend from the hash of the previous block
+      block = createNewBlockPara(prevBlock.hash());
+    }
+
+    localSeq++; // AE-TODO 
     // We create a justification for that block
     // Just justPrep = callTEEpreparePara(block.hash(),just);
     Just justPrep = callTEEpreparePara(block,just);
     if (justPrep.isSet()) {
       if (DEBUG1) std::cout << KBLU << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
+      // this->pblocks[this->view][block.getSeqNumber()] = block;
       this->pblocks[this->view].push_back(block);
+      prevBlock = block;
       // We create a message out of that commitment, which we'll store in our log
       Signs signs = justPrep.getSigns();
       MsgPreparePara msgPrep(justPrep.getRDataPara(),signs);
 
-      // We now create a proposal out of that block to send out to the other replicas
-      ParaProposal prop(just,block);
+      ParaProposal prop(just,block); // Create a proposal out of that block to send out to the other replicas
 
       // We send this proposal in a prepare message
       MsgLdrPreparePara msgProp(prop,signs);
@@ -1541,10 +1552,11 @@ void Handler::initiateCommitPara(RDataPara rdata) { // For leaders to generate a
       }
     }
     if (highestContinuousSeq >= lastExecutedSeq) {
-      for (int i = lastExecutedSeq + 1; i <= highestContinuousSeq; ++i) {
-        RDataPara rdata = this->log.getCommitForSeq(this->view, i).rdata;
-        executeRDataPara(rdata);
-      }
+      executeBlocksFrom(this->view, lastExecutedSeq + 1, highestContinuousSeq);
+      // for (int i = lastExecutedSeq + 1; i <= highestContinuousSeq; ++i) {
+      //   RDataPara rdata = this->log.getCommitForSeq(this->view, i).rdata;
+      //   executeRDataPara(rdata);
+      // }
     }
   }
 }
@@ -1554,6 +1566,7 @@ void Handler::respondToProposalPara(Just justNv, PBlock block) {
   Just newJustPrep = callTEEpreparePara(block, justNv);
   if (newJustPrep.isSet()) {
     if (DEBUG1) std::cout << KBLU << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
+    //this->pblocks[this->view][block.getSeqNumber()] = block;
     this->pblocks[this->view].push_back(block);
     
     // We create a message out of that commitment, which we'll store in our log
@@ -1670,6 +1683,8 @@ void Handler::startNewViewPara() {
   while (just.getRDataPara().getPropv() <= this->view) { just = callTEEsignPara(); } // generate justifications until we can generate one for the next view
   this->view++; // increment the view -> THE NODE HAS NOW MOVED TO THE NEW-VIEW
   lastExecutedSeq = -1; // We reset the last executed sequence number
+  // auto& blocks = this->pblocks[this->view];
+  // blocks.resize(maxBlocksInView+1); 
   if (DEBUG) std::cout << KBLU << nfo() << "new view: " << this->view << "And last executed seq: " << lastExecutedSeq << KNRM << std::endl;
   setTimer(); // We start the timer
 
@@ -1698,7 +1713,8 @@ std::vector<unsigned int> Handler::getMissingSeqNumbersForJust(Just justNV) {
     View view = justNV.getRDataPara().getJustv();
     unsigned int seqNumber = justNV.getRDataPara().getSeqNumber();
 
-    auto it = this->pblocks.find(view); // Find the pblocks for the given view
+    auto it = this->pblocks.find(view); // Find the pblocks for the given vie
+    
     if (it == this->pblocks.end()) {
         // No blocks for this view, so all sequence numbers are missing
         for (unsigned int i = 0; i <= seqNumber; ++i) {
@@ -1735,11 +1751,12 @@ void Handler::handleNewViewPara(MsgNewViewPara msg) {
       Just justNV = this->log.findHighestNvPara(this->view); 
       std::vector<unsigned int> missing = getMissingSeqNumbersForJust(justNV);
       //Print missing numbers
+      if (DEBUG) std::cout << KBLU << nfo() << "missing: " << missing.size() << KNRM << std::endl;
       for (unsigned int i = 0; i < missing.size(); ++i) {
         if (DEBUG) std::cout << KBLU << nfo() << "missing: " << missing[i] << KNRM << std::endl;
       }
 
-      if (missing.empty() || this->view == 0) {
+      if (missing.empty() || this->view == 0) { //
         initiateVerifyPara(justNV);
       } else { 
         initiateRecoverPara(missing, justNV); // AE-TODO Implement recover phase
@@ -1767,9 +1784,6 @@ void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for 
   PBlock b = prop.getBlock();
 
   // We re-construct the justification generated by the leader AE-TODO: IS THIS NECESSARY?
-  // RDataPara rdataLdrPrep(b.hash(),rdataNV.getPropv(),rdataNV.getJusth(),rdataNV.getJustv(),PH1_PREPARE, rdataNV.getSeqNumber());
-  // Just ldrJustPrep(rdataLdrPrep,msg.signs);
-  // bool vm = verifyJustPara(ldrJustPrep);
   bool vm = verifyJustPara(justNV);
   bool justIsVerified = justNV == verifiedJust;
 
@@ -1778,6 +1792,8 @@ void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for 
 
   // Check whether we have already stored, e.g. voted for, a block with the same sequence number
   auto &blocksInView = this->pblocks[this->view];
+
+
   auto seqNumber = b.getSeqNumber();
   bool seqNumberExists = std::any_of(blocksInView.begin(), blocksInView.end(),
                                      [seqNumber](PBlock &b) { return b.getSeqNumber() == seqNumber; });
@@ -2027,12 +2043,8 @@ void Handler::handleCommitPara(MsgCommitPara msg) {
             break;  
           }
         }
-        // AE-TODO I need to make sure to execute all the blocks up to the highest continuous sequence number
         if (highestContinuousSeq >= lastExecutedSeq) {
-          for (int i = lastExecutedSeq + 1; i <= highestContinuousSeq; ++i) {
-            RDataPara rdata = this->log.getCommitForSeq(this->view, i).rdata;
-            executeRDataPara(rdata);
-          }
+          executeBlocksFrom(this->view, lastExecutedSeq + 1, highestContinuousSeq);
         }
        
       }
@@ -2052,6 +2064,47 @@ void Handler::handleCommitPara(MsgCommitPara msg) {
   auto end = std::chrono::steady_clock::now();
   double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   stats.addTotalHandleTime(time);
+}
+
+void Handler::executeBlocksFrom(View view, int startSeq, int endSeq) {
+    std::vector<PBlock> sortedBlocks;
+    for (auto& block : this->pblocks[view]) {
+        if (block.getSeqNumber() >= startSeq && block.getSeqNumber() <= endSeq) {
+            sortedBlocks.push_back(block);
+        }
+    }
+    // Sort blocks by sequence number
+    std::sort(sortedBlocks.begin(), sortedBlocks.end(),
+              []( PBlock& a,  PBlock& b) {
+                  return a.getSeqNumber() < b.getSeqNumber();
+              });
+
+    // Verify the hash chain
+    Hash expectedPrevHash;  // Variable to store the expected previous hash.
+    if (startSeq > 0 && !sortedBlocks.empty()) {
+        // We need to find the block with the sequence number one less than the startSeq to get its hash.
+        bool found = false;
+        for (auto& block : this->pblocks[view]) {
+            if (block.getSeqNumber() == startSeq - 1) {
+                expectedPrevHash = block.hash();
+                found = true;
+                break;
+            }
+        } 
+        if (!found) { std::cout << KRED << nfo() << "Unable to find the previous block to verify extension." << KNRM << std::endl; return; }
+    } 
+    for (auto& block : sortedBlocks) {
+        if (block.getSeqNumber() > 0 && !block.extends(expectedPrevHash)) {
+            std::cout << KRED << nfo() << "Block sequence error at seq " << block.getSeqNumber() << ": does not properly extend the previous block." << KNRM << std::endl;
+            return;  // Stop execution if a block does not properly extend.
+        }
+        expectedPrevHash = block.hash();
+    }
+    // Execute the blocks if all are valid
+    for (auto& block : sortedBlocks) {
+        RDataPara rdata = this->log.getCommitForSeq(view, block.getSeqNumber()).rdata;
+        executeRDataPara(rdata);
+    }
 }
 
 void Handler::handle_commit_para(MsgCommitPara msg, const PeerNet::conn_t &conn) {

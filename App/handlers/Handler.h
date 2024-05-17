@@ -47,7 +47,7 @@ class Handler {
   unsigned int localSeq = 0;     // local sequence number
   unsigned int maxViews = 3;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
-  unsigned int maxBlocksInView = 3;
+  unsigned int maxBlocksInView = 5;
 
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
@@ -196,6 +196,7 @@ class Handler {
   PBlock createNewBlockPara(Hash hash);
 
   void executeRDataPara(RDataPara rdata);
+  void executeBlocksFrom(View view, int startSeq, int endSeq);
 
 
   std::vector<unsigned int> getMissingSeqNumbersForJust(Just justNV);
