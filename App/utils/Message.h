@@ -367,6 +367,8 @@ struct MsgVerifyPara { // TODO: Actually implement this
   RDataPara rdata;
   Signs signs;
   std::vector<Hash> blockHashes;
+
+  MsgVerifyPara() {}
   // This message is only for leader and includes a list of block hashes and a QC
   MsgVerifyPara(const RDataPara &rdata, const Signs &signs, const std::vector<Hash> &blockHashes)
     : rdata(rdata), signs(signs), blockHashes(blockHashes) {
@@ -386,10 +388,16 @@ struct MsgVerifyPara { // TODO: Actually implement this
     }
   }
 
+
   bool operator<(const MsgVerifyPara& s) const {
     if (signs < s.signs) { return true; }
     return false;
   }
+
+  bool isEmpty() const {
+    return blockHashes.empty(); 
+  }
+
   std::string prettyPrint() {
     std::string result = "VERIFY[" + rdata.prettyPrint() + "," + signs.prettyPrint() + ", Hashes(" + std::to_string(blockHashes.size()) + "): ";
     for (auto &hash : blockHashes) {

@@ -45,9 +45,9 @@ class Handler {
   KEY priv;                      // private key
   View view = 0;                 // current view - initially 0
   unsigned int localSeq = 1;     // local sequence number
-  unsigned int maxViews = 3;     // 0 means no constraints
+  unsigned int maxViews = 4;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
-  static const unsigned int maxBlocksInView = 3;
+  static const unsigned int maxBlocksInView = 10;
 
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec

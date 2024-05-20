@@ -11,7 +11,7 @@
 // to print timing info
 #define DEBUGT  false
 // adds ocalls to profile crypto in enclaves
-#define DEBUGOT false
+#define DEBUGOT true
 // to print 'EXECUTE' messages
 #define DEBUGE  true
 // to print client messages
@@ -56,5 +56,35 @@
 #define KBMAG  "\x1B[45m\x1B[37m"
 #define KBCYN  "\x1B[46m\x1B[37m"
 #define KBWHT  "\x1B[47m\x1B[30m"
+
+
+// #define KNRM  ""
+
+// // default background & different foreground colors
+// #define KRED  ""
+// #define KGRN  ""
+// #define KYEL  ""
+// #define KBLU  ""
+// #define KMAG  ""
+// #define KCYN  ""
+// #define KWHT  ""
+
+// // default background & different (light) foreground colors
+// #define KLGRN  ""
+// #define KLRED  ""
+// #define KLYEL  ""
+// #define KLBLU  ""
+// #define KLMAG  ""
+// #define KLCYN  ""
+// #define KLWHT  ""
+
+// // diferent background colors & white foreground
+// #define KBRED  ""
+// #define KBGRN  ""
+// #define KBYEL  ""
+// #define KBBLU  ""
+// #define KBMAG  ""
+// #define KBCYN  ""
+// #define KBWHT  ""
 
 #endif

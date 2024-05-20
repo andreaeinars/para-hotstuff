@@ -20,6 +20,7 @@ class Log {
   std::map<View,std::set<MsgLdrPrepareCh>> ldrpreparesCh;
 
   std::map<View,std::set<MsgNewViewPara>> newviewsPara;
+  std::map<View, MsgVerifyPara> verifiesPara;
   // std::map<View,std::set<MsgPreparePara>> preparesPara;
   // std::map<View,std::set<MsgPreCommitPara>> precommitsPara;
   // std::map<View,std::set<MsgCommitPara>> commitsPara;
@@ -30,6 +31,7 @@ class Log {
   std::map<View, std::map<unsigned int, std::set<MsgPreCommitPara>>> precommitsPara;
   std::map<View, std::map<unsigned int, std::set<MsgCommitPara>>> commitsPara;
   std::map<View, std::map<unsigned int, std::set<MsgLdrPreparePara>>> proposalsPara;
+  
 
 
  public:
@@ -51,6 +53,7 @@ class Log {
   unsigned int storePcPara(MsgPreCommitPara msg);
   unsigned int storeComPara(MsgCommitPara msg);
   unsigned int storePropPara(MsgLdrPreparePara msg);
+  unsigned int storeVerifyPara(MsgVerifyPara msg);
 
   // finds the justification of the highest message in the 'newviews' log for view 'view'
   Just findHighestNv(View view);
@@ -70,7 +73,8 @@ class Log {
   // collects the signatures of the messages in the 'commits' log for view 'view', upto 'n' signatures
   Signs getCommit(View view, unsigned int n);
 
-  Signs getNewViewPara(View view, unsigned int n, unsigned int seqNumber);
+  Signs getNewViewPara(View view, unsigned int n);
+  MsgVerifyPara getVerifyPara(View view);
   Signs getPreparePara(View view, unsigned int n, unsigned int seqNumber);
   Signs getPrecommitPara(View view, unsigned int n, unsigned int seqNumber);
   Signs getCommitPara(View view, unsigned int n, unsigned int seqNumber);
@@ -91,6 +95,11 @@ class Log {
   bool hasCommitForSeq(View view, unsigned int seqNumber);
 
   MsgCommitPara getCommitForSeq(View view, unsigned int seqNumber);
+
+  Just firstPreparePara(View view, unsigned int seqNumber);
+  Just firstPrecommitPara(View view, unsigned int seqNumber);
+  Just firstCommitPara(View view, unsigned int seqNumber);
+  MsgLdrPreparePara firstProposalPara(View view, unsigned int seqNumber);
 };
 
 #endif

@@ -69,6 +69,19 @@ bool msgLdrPrepareFrom(std::set<T> msgs, std::set<PID> signers) {
   return false;
 }
 
+template <typename T>
+bool msgVerifyFrom(std::set<T> msgs, std::set<PID> signers) {
+  for (typename std::set<T>::iterator it=msgs.begin(); it!=msgs.end(); ++it) {
+    T msg = (T)*it;
+    std::set<PID> k = msg.signs.getSigners();
+    for (std::set<PID>::iterator it2=k.begin(); it2!=k.end(); ++it2) {
+      signers.erase((PID)*it2);
+      if (signers.empty()) { return true; }
+    }
+  }
+  return false;
+}
+
 unsigned int Log::storeNv(MsgNewView msg) {
   RData rdata = msg.rdata;
   View v = rdata.getPropv();
@@ -677,6 +690,14 @@ unsigned int Log::storePropPara(MsgLdrPreparePara msg) {
     return msgs.size();
 }
 
+unsigned int Log::storeVerifyPara(MsgVerifyPara msg) {
+  RDataPara rdata = msg.rdata;
+  View v = rdata.getPropv();
+
+  this->verifiesPara[v]=msg;
+  return 1;
+}
+
 
 //AE-TODO : Make sure this is correct
 Just Log::findHighestNvPara(View view) {
@@ -705,8 +726,8 @@ Just Log::findHighestNvPara(View view) {
 }
 
 
-//AE-TODO: Find new views with matchnig view and sequence number
-Signs Log::getNewViewPara(View view, unsigned int n, unsigned int seqNumber) {
+//AE-TODO: Find new views with matchnig view
+Signs Log::getNewViewPara(View view, unsigned int n) {
   Signs signs;
   std::map<View,std::set<MsgNewViewPara>>::iterator it1 = this->newviewsPara.find(view);
   if (it1 != this->newviewsPara.end()) { // there is already an entry for this view
@@ -718,6 +739,14 @@ Signs Log::getNewViewPara(View view, unsigned int n, unsigned int seqNumber) {
     }
   }
   return signs;
+}
+
+MsgVerifyPara Log::getVerifyPara(View view) {
+  auto it = this->verifiesPara.find(view);
+  if (it != this->verifiesPara.end()) {
+      return it->second;
+  }
+  return MsgVerifyPara();
 }
 
 // AE-TODO: Find first prepare with matching view and sequence number
@@ -819,4 +848,70 @@ MsgCommitPara Log::getCommitForSeq(View view, unsigned int seqNumber) {
     }
   }
   return MsgCommitPara();
+}
+
+Just Log::firstPreparePara(View view, unsigned int seqNumber) {
+    // Find the view in the prepares map
+    auto itView = this->preparesPara.find(view);
+    Just just = Just();  // 
+
+    if (itView != this->preparesPara.end()) {
+        // Find the sequence number in the nested map
+        auto itSeq = itView->second.find(seqNumber);
+        if (itSeq != itView->second.end() && !itSeq->second.empty()) {
+            MsgPreparePara msg = *itSeq->second.begin(); 
+            RDataPara rdata = msg.rdata;
+            Signs signs = msg.signs;
+            return Just(rdata, signs);
+        }
+    }
+    return just;  
+}
+
+Just Log::firstPrecommitPara(View view, unsigned int seqNumber) {
+    // Find the view in the prepares map
+    auto itView = this->precommitsPara.find(view);
+    Just just = Just();  // Default empty Just object to return if no message is found
+    if (itView != this->precommitsPara.end()) {
+        // Find the sequence number in the nested map
+        auto itSeq = itView->second.find(seqNumber);
+        if (itSeq != itView->second.end() && !itSeq->second.empty()) {
+            MsgPreCommitPara msg = *itSeq->second.begin();  
+            RDataPara rdata = msg.rdata;
+            Signs signs = msg.signs;
+            return Just(rdata, signs);
+        }
+    }
+    return just;  
+}
+
+Just Log::firstCommitPara(View view, unsigned int seqNumber) {
+    // Find the view in the prepares map
+    auto itView = this->commitsPara.find(view);
+    Just just = Just();  // Default empty Just object to return if no message is found
+    if (itView != this->commitsPara.end()) {
+        // Find the sequence number in the nested map
+        auto itSeq = itView->second.find(seqNumber);
+        if (itSeq != itView->second.end() && !itSeq->second.empty()) {
+            MsgCommitPara msg = *itSeq->second.begin();  
+            RDataPara rdata = msg.rdata;
+            Signs signs = msg.signs;
+            return Just(rdata, signs);
+        }
+    }
+    return just;  
+}
+
+
+MsgLdrPreparePara Log::firstProposalPara(View view, unsigned int seqNumber) {
+    auto itView = this->proposalsPara.find(view);
+    MsgLdrPreparePara msg;  
+    if (itView != this->proposalsPara.end()) {
+        auto itSeq = itView->second.find(seqNumber);
+        if (itSeq != itView->second.end() && !itSeq->second.empty()) {
+            // If found and not empty, return the first MsgLdrPreparePara from the set
+            msg = *itSeq->second.begin();
+        }
+    }
+    return msg;  
 }
