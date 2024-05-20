@@ -44,10 +44,10 @@ class Handler {
   Nodes nodes;                   // collection of the other nodes
   KEY priv;                      // private key
   View view = 0;                 // current view - initially 0
-  unsigned int localSeq = 0;     // local sequence number
+  unsigned int localSeq = 1;     // local sequence number
   unsigned int maxViews = 3;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
-  unsigned int maxBlocksInView = 5;
+  static const unsigned int maxBlocksInView = 3;
 
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
@@ -66,17 +66,19 @@ class Handler {
   std::list<Transaction> transactions; // current waiting to be processed
   std::map<View,Block> blocks; // blocks received in each view
   std::map<View,JBlock> jblocks; // blocks received in each view (Chained baseline)
-  std::map<View, std::vector<PBlock>> pblocks;  //blocks received in each view (Parallel baseline)
+
+  // std::map<View, std::vector<PBlock>> pblocks;  //blocks received in each view (Parallel baseline)
+  std::map<View, std::array<PBlock, maxBlocksInView>> pblocks;
   Log log; // log of messages
 
   // Because now there can be multiple justifications for multiple blocks
   std::set<std::pair<View, unsigned int>> initiatedPrepareCerts;
-  std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts;
+  std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts ;
   std::set<std::pair<View, unsigned int>> initiatedCommitCerts;
 
   std::map<View, unsigned int> recoverResponses;
 
-  int lastExecutedSeq = -1;
+  unsigned int lastExecutedSeq = 0;
 
   Just justNV;
   std::string nfo(); // used to print debugging info

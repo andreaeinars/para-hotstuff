@@ -65,6 +65,8 @@ bool PBlock::extends(Hash h) {
   return (this->prevHash == h);
 }
 
+
+bool PBlock::isBlock() { return this->seqNumber != 0;}
 bool PBlock::isDummy() { return !this->set; }
 unsigned int PBlock::getSize() { return this->size; }
 unsigned int PBlock::getSeqNumber() { return this->seqNumber; }

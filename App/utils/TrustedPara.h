@@ -25,6 +25,7 @@ class TrustedPara {
   std::map<unsigned int, Hash> precommitBlocks; // Map to store precommit blocks by their sequence number
   std::set<unsigned int> precommitSeqNumbers; 
   std::map<unsigned int, View> precommitViews;
+  std::map<unsigned int, PBlock> storedBlocks;
 
   Just sign(Hash h1, Hash h2, View v2, unsigned int seqNumber);
   Just signBlock(Hash h1, Hash h2, View v2, unsigned int seqNumber);

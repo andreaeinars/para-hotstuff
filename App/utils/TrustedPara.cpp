@@ -44,7 +44,8 @@ void TrustedPara::increment_node_phase() {
     this->phase = PH1_PARALLEL;
   } else if (this->phase == PH1_PARALLEL) {
     this->phase = PH1_NEWVIEW;
-    this->view++;
+    increment_view();
+    //this->view++;
   }
 }
 
@@ -65,6 +66,12 @@ void TrustedPara::increment_block_phase(Hash blockHash) {
 
 void TrustedPara::increment_view() {
   this->view++;
+  blockPhases.clear();
+  precommitBlocks.clear();
+  precommitSeqNumbers.clear();
+  precommitViews.clear();
+  storedBlocks.clear();
+  prefixLockedSeqNumber = 0;
 }
 
 void TrustedPara::set_phase(Phase1 phase) {
@@ -75,9 +82,7 @@ Just TrustedPara::sign(Hash h1, Hash h2, View v2, unsigned int seqNumber) {
   RDataPara rdata(h1,this->view,h2,v2,this->phase, seqNumber); //todo add sequnce number
   Sign sign(this->priv,this->id,rdata.toString());
   Just just(rdata,sign);
-  // increment_block_phase(h1);
   increment_node_phase();
-  // if (DEBUG) std::cout << "Signing: " << just.getRDataPara().prettyPrint() << std::endl;
   return just;
 }
 
@@ -181,6 +186,8 @@ Just TrustedPara::TEEprepare(Stats &stats, Nodes nodes, PBlock block, Just just)
       // && (h2 == this->prefixLockedHash || v2 > this->prefixLockedView)) 
       { // AE-TODO : Add check if we have voted for this sequnce number
     //return sign(hash,h2,v2);
+    // if (DEBUG) std::cout << "Storing block with seq number: " << block.getSeqNumber() << std::endl;
+    storedBlocks[block.getSeqNumber()] = block;
     return signBlock(block.hash(),h2,v2, block.getSeqNumber());
   } else {
     if (DEBUG) std::cout << KMAG << "TEEprepare failed:"
@@ -227,17 +234,36 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
     }
     if (ph == PH1_PRECOMMIT) { 
       precommitBlocks[seq] = h;
-      precommitBlocks[seq] = v;
+      precommitViews[seq] = v;
       precommitSeqNumbers.insert(seq);
+
+      // if (DEBUG) std::cout << "Now checking if we can lock seq: " << seq << std::endl;
 
       // AE-TODO: If we now have the prefix until some higher block, make sure to lock that one
 
-      unsigned int highestContinuousSeq = 0;
-      for (unsigned int i = 0; i <= *precommitSeqNumbers.rbegin(); ++i) {
-          if (precommitSeqNumbers.find(i) == precommitSeqNumbers.end()) {
-              break;
-          }
-          highestContinuousSeq = i;
+      unsigned int highestContinuousSeq = 1;
+      Hash lastValidHash = this->prefixLockedHash;
+
+      unsigned int checkFrom;
+      if (prefixLockedView == v) {
+        checkFrom = this->prefixLockedSeqNumber + 1;
+      } else {
+        checkFrom = 1;
+      }
+
+      //if (DEBUG) std::cout << "Checking from seq number: " << checkFrom << "and prefixLockedSeqNumber: " << this->prefixLockedSeqNumber << " and prefixLockedView: " << this->prefixLockedView << " and v: " << v << std::endl;
+
+      for (unsigned int i = checkFrom; i <= *precommitSeqNumbers.rbegin(); ++i) {
+        if (precommitSeqNumbers.find(i) == precommitSeqNumbers.end() || !storedBlocks.count(i)) {
+          if (DEBUG) std::cout << "Missing block with seq number: " << i << std::endl;
+          break;  // Missing a sequence number or block data
+        }
+        if (i > 1 && !storedBlocks[i].extends(lastValidHash)) {
+          if (DEBUG) std::cout << "Block with seq number: " << i << " does not extend correctly" << std::endl;
+          break;  // Block does not extend correctly
+        }
+        lastValidHash = storedBlocks[i].hash();
+        highestContinuousSeq = i;
       }
 
       if (highestContinuousSeq > this->prefixLockedSeqNumber) {
@@ -253,4 +279,5 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
   if (DEBUG) std::cout << "TEEstore failed" << std::endl;
   return Just(false, RDataPara(), Signs());
 }
+
 

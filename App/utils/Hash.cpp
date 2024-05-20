@@ -72,6 +72,10 @@ bool Hash::operator==(const Hash& s) const {
   return true;
 }
 
+bool Hash::operator!=(const Hash& s) const {
+    return !(*this == s);
+}
+
 bool Hash::operator<(const Hash& s) const {
   for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
     if (hash[i] < s.hash[i]) return true;

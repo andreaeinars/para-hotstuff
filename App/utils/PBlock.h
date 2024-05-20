@@ -30,6 +30,7 @@ class PBlock {
   Hash hash();
 
   bool isDummy(); // true if the block is not set
+  bool isBlock();
   unsigned int getSize();
   unsigned int getSeqNumber();
   Transaction *getTransactions();
