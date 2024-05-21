@@ -232,6 +232,7 @@ int main(int argc, char const *argv[]) {
   if (argc > 6) { sscanf(argv[6], "%d", &inst); }
   std::cout << cnfo() << "instance=" << inst << KNRM << std::endl;
 
+
   numNodes = (constFactor*numFaults)+1;
   qsize = numNodes-numFaults;
   std::string confFile = "config";

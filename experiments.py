@@ -48,7 +48,7 @@ def clearStatsDir():
     for f in files0 + files1 + files2 + files3 + files4 + files5 + files6:
         os.remove(f)
 
-def mkParams(protocol,constFactor,numFaults,numTrans,payloadSize):
+def mkParams(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView=0):
     f = open(params, 'w')
     f.write("#ifndef PARAMS_H\n")
     f.write("#define PARAMS_H\n")
@@ -58,17 +58,18 @@ def mkParams(protocol,constFactor,numFaults,numTrans,payloadSize):
     f.write("#define MAX_NUM_SIGNATURES " + str((constFactor*numFaults)+1-numFaults) + "\n")
     f.write("#define MAX_NUM_TRANSACTIONS " + str(numTrans) + "\n")
     f.write("#define PAYLOAD_SIZE " +str(payloadSize) + "\n")
+    f.write("#define MAX_BLOCKS_IN_VIEW " + str(maxBlocksInView) + "\n")
     f.write("\n")
     f.write("#endif\n")
     f.close()
 
-def mkApp(protocol,constFactor,numFaults,numTrans,payloadSize):
+def mkApp(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView=0):
     ncores = 1
     if useMultiCores:
         ncores = numMakeCores
     print(">> making using",str(ncores),"core(s)")
 
-    mkParams(protocol,constFactor,numFaults,numTrans,payloadSize)
+    mkParams(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView)
 
     if runDocker:
         numReps = (constFactor * numFaults) + 1
@@ -101,7 +102,7 @@ def mkApp(protocol,constFactor,numFaults,numTrans,payloadSize):
         subprocess.call(["make","clean"])
         subprocess.call(["make","-j",str(ncores),"server","client"])
 
-def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance):
+def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance, maxBlocksInView=0):
     subsReps    = [] # list of replica subprocesses
     subsClients = [] # list of client subprocesses
     numReps = (constFactor * numFaults) + 1
@@ -133,7 +134,8 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
         # we give some time for the nodes to connect gradually
         if (i%10 == 5):
             time.sleep(2)
-        cmd = " ".join([server, str(i), str(numFaults), str(constFactor), str(numViews), str(newtimeout)])
+        cmd = f"{server} {i} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView}"
+        #cmd = " ".join([server, str(i), str(numFaults), str(constFactor), str(numViews), str(newtimeout)])
         if runDocker:
             dockerInstance = dockerBase + str(i)
             cmd = docker + " exec -t " + dockerInstance + " bash -c \"" + cmd + "\""
@@ -147,7 +149,8 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
 
     time.sleep(wait)
     for cid in range(numClients):
-        cmd = " ".join([client, str(cid), str(numFaults), str(constFactor), str(numClTrans), str(sleepTime), str(instance)])
+        cmd = f"{client} {cid} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance}"
+        #cmd = " ".join([client, str(cid), str(numFaults), str(constFactor), str(numClTrans), str(sleepTime), str(instance)])
         if runDocker:
             dockerInstance = dockerBase + "c" + str(cid)
             cmd = docker + " exec -t " + dockerInstance + " bash -c \"" + cmd + "\""
@@ -220,14 +223,16 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
     else:
         subprocess.run(["killall -q server client; fuser -k " + ports], shell=True) #, check=True)
 
-def printNodePoint(protocol,numFaults,tag,val):
+def printNodePoint(protocol,numFaults,tag,val, maxBlocksInView=0):
+    protocol_name = f"{protocol.value}-{maxBlocksInView}BLOCKS" if 'PARALLEL_HOTSTUFF' in protocol.value and maxBlocksInView > 0 else protocol.value
     f = open(pointsFile, 'a')
-    f.write("protocol="+protocol.value+" "+"faults="+str(numFaults)+" "+tag+"="+str(val)+"\n")
+    f.write("protocol="+protocol_name+" "+"faults="+str(numFaults)+" "+tag+"="+str(val)+"\n")
     f.close()
 
-def printNodePointComment(protocol,numFaults,instance,repeats):
+def printNodePointComment(protocol,numFaults,instance,repeats, maxBlocksInView=0):
+    protocol_name = f"{protocol.value}-{maxBlocksInView}BLOCKS" if 'PARALLEL_HOTSTUFF' in protocol.value and maxBlocksInView > 0 else protocol.value
     f = open(pointsFile, 'a')
-    f.write("# protocol="+protocol.value+" regions=local "+" payload="+str(payloadSize)+" faults="+str(numFaults)+" instance="+str(instance)+" repeats="+str(repeats)+"\n")
+    f.write("# protocol="+protocol_name+" regions=local "+" payload="+str(payloadSize)+" faults="+str(numFaults)+" instance="+str(instance)+" repeats="+str(repeats)+"\n")
     f.close()
 
 def printNodePointParams():
@@ -245,7 +250,7 @@ def printNodePointParams():
     f.write(text)
     f.close()
 
-def computeStats(protocol, numFaults, instance, repeats):
+def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
     # Dictionary to hold metric names and their corresponding accumulators and counters
     metrics = {
         "throughput-view": {"val": 0.0, "num": 0},
@@ -257,7 +262,7 @@ def computeStats(protocol, numFaults, instance, repeats):
         "crypto-num-verif": {"val": 0.0, "num": 0},
     }
 
-    printNodePointComment(protocol, numFaults, instance, repeats)
+    printNodePointComment(protocol, numFaults, instance, repeats, maxBlocksInView)
 
     files = glob.glob(statsdir + "/vals*")
     for filename in files:
@@ -275,7 +280,7 @@ def computeStats(protocol, numFaults, instance, repeats):
             for metric, value in metric_values.items():
                 metrics[metric]["val"] += value
                 metrics[metric]["num"] += 1
-                printNodePoint(protocol, numFaults, metric, value)
+                printNodePoint(protocol, numFaults, metric, value, maxBlocksInView)
 
     # Calculate averages
     results = {metric: metrics[metric]["val"] / metrics[metric]["num"] if metrics[metric]["num"] > 0 else 0.0 for metric in metrics}
@@ -353,7 +358,7 @@ def stopContainers(numReps,numClients):
         stop_and_remove_container(instance)
         stop_and_remove_container(instancex)
 
-def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, numRepeats):
+def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, numRepeats, maxBlocksInView=0):
     def log_status(i = None):
         print("<<<<<<<<<<<<<<<<<<<<", end="")
         print("protocol=", protocol.value)
@@ -383,7 +388,7 @@ def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, num
         startContainers(numReps, numClients)
 
     if recompile:
-        mkApp(protocol, constFactor, numFaults, numTrans, payloadSize)
+        mkApp(protocol, constFactor, numFaults, numTrans, payloadSize, maxBlocksInView)
 
     goodValues = 0
 
@@ -391,8 +396,8 @@ def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, num
         log_status(i)
 
         clearStatsDir()
-        execute(protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, i)
-        results = computeStats(protocol, numFaults, i, numRepeats)
+        execute(protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, i, maxBlocksInView)
+        results = computeStats(protocol, numFaults, i, numRepeats, maxBlocksInView)
 
         if all(result > 0 for result in results):
             for key, result in zip(metrics.keys(), results):
@@ -432,7 +437,9 @@ def getPercentage(bo,nameBase,faultsBase,valsBase,nameNew,faultsNew,valsNew):
 
 def createPlot(pFile):
     def init_dicts():  # Dictionary initialization
-        protocols = ["BASIC_BASELINE", "CHAINED_BASELINE", "PARALLEL_HOTSTUFF"]
+        #protocols = ["BASIC_BASELINE", "CHAINED_BASELINE", "PARALLEL_HOTSTUFF"]
+        protocols = ["BASIC_BASELINE", "CHAINED_BASELINE"] + \
+                    [f"PARALLEL_HOTSTUFF-{blocks}BLOCKS" for blocks in maxBlocksInView]
         metrics = ["throughput-view", "latency-view", "handle", "crypto-sign", "crypto-verif"]
         return {protocol: {metric: {} for metric in metrics} for protocol in protocols}
 
@@ -464,12 +471,8 @@ def createPlot(pFile):
             return
         val, num = data_dict[protocol][metric].get(numFaults, ([], 0))
         # Adjust scaling based on the original logic
-        if metric == "throughput-view":
-            val.append(float(pointVal))
-        elif metric == "latency-view":
-            val.append(float(pointVal))
-        else:
-            val.append(float(pointVal) / numViews)
+        val.append(float(pointVal) if metric in ["throughput-view", "latency-view"] else float(pointVal) / numViews)
+
         data_dict[protocol][metric][numFaults] = (val, num + 1)
 
     # Reading points from the file
@@ -484,8 +487,10 @@ def createPlot(pFile):
                 numFaults = int(parts[1].split("=")[1])
                 pointTag = parts[2].split("=")[0]
                 pointVal = float(parts[2].split("=")[1])
+                #protocol = f"{protocol_base}-{numBlocks}BLOCKS" if numBlocks > 0 else protocol_base
                 if pointVal < float('inf'):
                     update_dict(protocol, pointTag, numFaults, pointVal)
+                
 
     # Function to convert dictionaries to lists
     def dict2lists(d, quantileSize, sort=True):
@@ -503,46 +508,37 @@ def createPlot(pFile):
             nums.append(m)
         if sort:
             sorted_tuples = sorted(zip(faults, vals, nums))
-            faults, vals, nums = zip(*sorted_tuples)
+            #faults, vals, nums = zip(*sorted_tuples)
+            faults, vals, nums = zip(*sorted_tuples) if sorted_tuples else (faults, vals, nums)
         return faults, vals, nums
     
     # Extracting data for plotting
     def extract_plot_data(metric):
-        faults_base, vals_base, nums_base = dict2lists(data_dict["BASIC_BASELINE"][metric], 20, False)
-        faults_chbase, vals_chbase, nums_chbase = dict2lists(data_dict["CHAINED_BASELINE"][metric], 20, False)
-        faults_para, vals_para, nums_para = dict2lists(data_dict["PARALLEL_HOTSTUFF"][metric], 20, False)
-        return (faults_base, vals_base, nums_base), (faults_chbase, vals_chbase, nums_chbase), (faults_para, vals_para, nums_para)
-    
+        plot_data = {}
+        for protocol in data_dict:
+            faults, vals, nums = dict2lists(data_dict[protocol][metric], 20, True)
+            plot_data[protocol] = (faults, vals, nums)
+        return plot_data
+
     # Plotting data helper function
     def plot_data(ax, metric, ylabel, logScale, showYlabel):
-        (faults_base, vals_base, nums_base), (faults_chbase, vals_chbase, nums_chbase), (faults_para, vals_para, nums_para) = extract_plot_data(metric)
+        plot_data = extract_plot_data(metric)
+        for protocol, data in plot_data.items():
+            if data[0]:  # Only plot if there is data
+                ax.plot(data[0], data[1], linewidth=LW, marker='o', markersize=MS, linestyle='-', label=protocol)
         if showYlabel:
             ax.set(ylabel=ylabel)
         if logScale:
             ax.set_yscale('log')
-        if plotView:
-            if plotBasic and faults_base:
-                ax.plot(faults_base, vals_base, color=basicCOL, linewidth=LW, marker=basicMRK, markersize=MS, linestyle=basicLS, label=basicHS)
-            if plotChained and faults_chbase:
-                ax.plot(faults_chbase, vals_chbase, color=chainedCOL, linewidth=LW, marker=chainedMRK, markersize=MS, linestyle=chainedLS, label=chainedHS)
-            if plotPara and faults_para:
-                ax.plot(faults_para, vals_para, color="green", linewidth=LW, marker="s", markersize=MS, linestyle=":", label="Parallel HotStuff")
-            if debugPlot:
-                for x, y, z in zip(faults_base, vals_base, nums_base):
-                    ax.annotate(z, (x, y), textcoords="offset points", xytext=XYT, ha='center')
-                for x, y, z in zip(faults_chbase, vals_chbase, nums_chbase):
-                    ax.annotate(z, (x, y), textcoords="offset points", xytext=XYT, ha='center')
-                for x, y, z in zip(faults_para, vals_para, nums_para):
-                    ax.annotate(z, (x, y), textcoords="offset points", xytext=XYT, ha='center')
-        if showLegend1 or (showLegend2 and not plotThroughput):
-            ax.legend(ncol=2, prop={'size': 9})
+        ax.legend(fontsize='xx-small')
 
     # Plotting setup
     LW = 1  # linewidth
     MS = 5  # markersize
     XYT = (0, 5)
     numPlots = 2 if plotThroughput and plotLatency else 1
-    fig, axs = plt.subplots(numPlots, 1)
+    #fig, axs = plt.subplots(numPlots, 1)
+    fig, axs = plt.subplots(numPlots, 1, figsize=(10, 6))
     axs = [axs] if numPlots == 1 else axs
 
     if showTitle:
@@ -567,7 +563,10 @@ def createPlot(pFile):
             plot_data(ax, "crypto-sign", "crypto-sign (ms)", logScale, showYlabel)
             plot_data(ax, "crypto-verif", "crypto-verif (ms)", logScale, showYlabel)
 
-    fig.savefig(plotFile, bbox_inches='tight', pad_inches=0.05)
+    #fig.tight_layout(pad=3.0)  # Adjust layout to prevent overlap
+    fig.savefig(plotFile, bbox_inches='tight', pad_inches=0.5)
+
+    #fig.savefig(plotFile, bbox_inches='tight', pad_inches=0.05)
     print("points are in", pFile)
     print("plot is in", plotFile)
     if displayPlot:
@@ -576,8 +575,11 @@ def createPlot(pFile):
         except:
             print(f"couldn't display the plot using '{displayApp}'. Consider changing the 'displayApp' variable.")
 
-    return data_dict["BASIC_BASELINE"]["throughput-view"], data_dict["CHAINED_BASELINE"]["throughput-view"], \
-           data_dict["BASIC_BASELINE"]["latency-view"], data_dict["CHAINED_BASELINE"]["latency-view"]
+    return {protocol: data_dict[protocol]["throughput-view"] for protocol in data_dict}
+
+
+    # return data_dict["BASIC_BASELINE"]["throughput-view"], data_dict["CHAINED_BASELINE"]["throughput-view"], \
+    #        data_dict["BASIC_BASELINE"]["latency-view"], data_dict["CHAINED_BASELINE"]["latency-view"]
 
 def runExperiments():
     Path(statsdir).mkdir(parents=True, exist_ok=True) # Creating stats directory
@@ -595,7 +597,8 @@ def runExperiments():
             (0.0,0.0,0.0,0.0)
 
         if runPara: # Chained HotStuff-like baseline
-            computeAvgStats(recompile,protocol=Protocol.PARA,constFactor=3,numClTrans=numClTrans,sleepTime=sleepTime,numViews=numViews,cutOffBound=cutOffBound,numFaults=numFaults,numRepeats=repeats)
+            for maxBlocks in maxBlocksInView:
+                computeAvgStats(recompile,protocol=Protocol.PARA,constFactor=3,numClTrans=numClTrans,sleepTime=sleepTime,numViews=numViews,cutOffBound=cutOffBound,numFaults=numFaults,numRepeats=repeats, maxBlocksInView=maxBlocks)
         else:
             (0.0,0.0,0.0,0.0)
 
@@ -616,6 +619,8 @@ parser.add_argument("--netvar",     type=int, default=0,   help="variation of th
 parser.add_argument("--views",      type=int, default=0,   help="number of views to run per experiments")
 parser.add_argument("--faults",     type=str, default="",  help="the number of faults to test, separated by commas: 1,2,3,etc.")
 parser.add_argument("--payload",    type=int, default=0,   help="size of payloads in Bytes")
+parser.add_argument("--maxBlocksInView", type=int, default=10, help="Maximum number of blocks in each view for Parallel HotStuff")
+
 args = parser.parse_args()
 
 if args.views > 0:

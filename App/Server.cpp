@@ -54,6 +54,11 @@ int main(int argc, char const *argv[]) {
   if (argc > 5) { sscanf(argv[5], "%lf", &timeout); }
   std::cout << KYEL << "[" << myid << "]timeout=" << timeout << KNRM << std::endl;
 
+  unsigned int maxBlocksInView = 10;  // default value
+  if (argc > 6) { sscanf(argv[6], "%d", &maxBlocksInView); }
+  std::cout << KYEL << "[" << myid << "]maxBlocksInView=" << maxBlocksInView << KNRM << std::endl;
+
+
 
   // -- Public key
   KEY priv;
@@ -152,7 +157,7 @@ int main(int argc, char const *argv[]) {
   ClientNet::Config cconfig;
   cconfig.max_msg_size(2*size);
   if (DEBUG1) std::cout << KYEL << "[" << myid << "]starting handler" << KNRM << std::endl;
-  Handler handler(kf,myid,timeout,constFactor,numFaults,numViews,nodes,priv,pconfig,cconfig);
+  Handler handler(kf,myid,timeout,constFactor,numFaults,numViews,nodes,priv,pconfig,cconfig, maxBlocksInView);
 
   return 0;
 };

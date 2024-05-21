@@ -47,7 +47,7 @@ class Handler {
   unsigned int localSeq = 1;     // local sequence number
   unsigned int maxViews = 4;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
-  static const unsigned int maxBlocksInView = 10;
+  unsigned int maxBlocksInView = 10;
 
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
@@ -68,7 +68,9 @@ class Handler {
   std::map<View,JBlock> jblocks; // blocks received in each view (Chained baseline)
 
   // std::map<View, std::vector<PBlock>> pblocks;  //blocks received in each view (Parallel baseline)
-  std::map<View, std::array<PBlock, maxBlocksInView>> pblocks;
+  // std::map<View, std::array<PBlock, maxBlocksInView>> pblocks;
+  std::map<View, std::vector<PBlock>> pblocks;
+
   Log log; // log of messages
 
   // Because now there can be multiple justifications for multiple blocks
@@ -248,7 +250,7 @@ class Handler {
   void replyHashPara(Hash hash, unsigned int seq);
 
  public:
-  Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf);
+  Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView);
 };
 
 

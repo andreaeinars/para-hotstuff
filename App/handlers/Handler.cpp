@@ -48,7 +48,7 @@ const uint8_t MsgTransaction::opcode;
 const uint8_t MsgReply::opcode;
 const uint8_t MsgStart::opcode;
 
-Handler::Handler(KeysFun k, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf) :
+Handler::Handler(KeysFun k, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView) :
 pnet(pec,pconf), cnet(cec,cconf) {
   this->myid         = id;
   this->timeout      = timeout;
@@ -59,6 +59,9 @@ pnet(pec,pconf), cnet(cec,cconf) {
   this->priv         = priv;
   this->maxViews     = maxViews;
   this->kf           = k;
+  this->maxBlocksInView = maxBlocksInView;
+
+  this->pblocks[this->view].resize(this->maxBlocksInView);
 
   if (DEBUG1) { std::cout << KBLU << nfo() << "starting handler" << KNRM << std::endl; }
   if (DEBUG1) { std::cout << KBLU << nfo() << "qsize=" << this->qsize << KNRM << std::endl; }
@@ -341,6 +344,7 @@ void Handler::getStarted() {
     }
     if (DEBUG) std::cout << KBLU << nfo() << "sent new-view to leader(" << nextLeader << ")" << KNRM << std::endl;
   #elif defined(PARALLEL_HOTSTUFF) // AE-TODO
+    // this->pblocks[this->view].resize(this->maxBlocksInView);
     Just j = callTEEsignPara(); // This currently gets the latest prepared I think, so correct
     if (DEBUG1) std::cout << KBLU << nfo() << "initial just:" << j.prettyPrint() << KNRM << std::endl;
     MsgNewViewPara msg(j.getRDataPara(),j.getSigns());
@@ -1452,6 +1456,8 @@ void Handler::preparePara(Just just) { // For leader to do begin a view (prepare
   localSeq = 1; 
   PBlock prevBlock;
 
+  // if (DEBUG) std::cout << KBLU << nfo() << "preparing for view=" << just.getRDataPara().getPropv() << KNRM << std::endl;
+
 
   for (int i = 1; i <= maxBlocksInView; ++i) {
     PBlock block;
@@ -1678,8 +1684,6 @@ void Handler::handleEarlierMessagesPara() {
     MsgVerifyPara verifyMsg = this->log.getVerifyPara(this->view);
     if (DEBUG) std::cout << KBLU << nfo() << "GOING TO TRY TO HANDLE EARLIER, my view:  " << this->view << " verifyMsg: " << verifyMsg.prettyPrint() << KNRM << std::endl;
 
-
-
     if (verifyMsg.isEmpty() == false) {
       if (DEBUG) std::cout << KBLU << nfo() << "catching up using verify certificate for view: " << this->view << KNRM << std::endl;
       handleVerifyPara(verifyMsg);
@@ -1739,6 +1743,8 @@ void Handler::startNewViewPara() {
 
   while (just.getRDataPara().getPropv() <= this->view) { just = callTEEsignPara(); } // generate justifications until we can generate one for the next view
   this->view++; // increment the view -> THE NODE HAS NOW MOVED TO THE NEW-VIEW
+  this->pblocks[this->view].resize(this->maxBlocksInView);
+
   lastExecutedSeq = 0; // We reset the last executed sequence number
   if (DEBUG) std::cout << KBLU << nfo() << "new view: " << this->view << "And last executed seq: " << lastExecutedSeq << KNRM << std::endl;
   setTimer(); // We start the timer
@@ -1767,7 +1773,7 @@ std::vector<unsigned int> Handler::getMissingSeqNumbersForJust(Just justNV) {
     // Extract view and sequence number from justNV
     View view = justNV.getRDataPara().getJustv();
     unsigned int seqNumber = justNV.getRDataPara().getSeqNumber();
-    std::array<PBlock, maxBlocksInView> &blocks = this->pblocks[view];
+    std::vector<PBlock> &blocks = this->pblocks[view];
     for (unsigned int i = 1; i <= seqNumber; ++i) {
         if (i > blocks.size() || !blocks[i-1].isBlock()) { 
             missingSeqNumbers.push_back(i);
@@ -2137,7 +2143,7 @@ void Handler::executeBlocksFrom(View view, int startSeq, int endSeq) {
         std::cout << KRED << nfo() << "Sequence number out of range." << KNRM << std::endl;
         return;
     }
-    std::array<PBlock, maxBlocksInView>& blocks = pblocks[view];
+    std::vector<PBlock>& blocks = pblocks[view];
     Hash expectedPrevHash; 
     if (startSeq > 1) {
         // Get the hash of the block before startSeq as the initial expected previous hash
