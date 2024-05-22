@@ -74,9 +74,9 @@ class Handler {
   Log log; // log of messages
 
   // Because now there can be multiple justifications for multiple blocks
-  std::set<std::pair<View, unsigned int>> initiatedPrepareCerts;
-  std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts ;
-  std::set<std::pair<View, unsigned int>> initiatedCommitCerts;
+  // std::set<std::pair<View, unsigned int>> initiatedPrepareCerts;
+  // std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts ;
+  // std::set<std::pair<View, unsigned int>> initiatedCommitCerts;
 
   std::map<View, unsigned int> recoverResponses;
 

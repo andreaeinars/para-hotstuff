@@ -1443,7 +1443,7 @@ void Handler::initiateVerifyPara(Just just){
       }
     }
   } else {
-      if (DEBUG) std::cout << KBLU << nfo() << "no blocks recorded for view " << justv << KNRM << std::endl;
+      if (DEBUG) std::cout << KBLU << nfo() << "No blocks recorded for view " << justv << KNRM << std::endl;
   }
 
   MsgVerifyPara msgVerify(just.getRDataPara(), just.getSigns(), hashes);
@@ -1466,25 +1466,13 @@ void Handler::preparePara(Just just) { // For leader to do begin a view (prepare
 
     if (justPrep.isSet()) {
       if (DEBUG1) std::cout << KMAG << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
-
       this->pblocks[this->view][block.getSeqNumber() - 1] = block;
       prevBlock = block;
       prevHash = block.hash(); // Update previous hash for the next block
-
-      // Signs signs = justPrep.getSigns();
-      // ParaProposal prop(just, block);
-      // MsgLdrPreparePara msgProp(prop, signs);
-      // Peers recipients = remove_from_peers(this->myid);
-      // sendMsgLdrPreparePara(msgProp, recipients);
-      // this->log.storePrepPara(MsgPreparePara(just.getRDataPara(), signs));
-
       Signs signs = justPrep.getSigns();
       MsgPreparePara msgPrep(justPrep.getRDataPara(),signs);
-
       ParaProposal prop(just,block); // Create a proposal out of that block to send out to the other replicas
-
-      // We send this proposal in a prepare message
-      MsgLdrPreparePara msgProp(prop,signs);
+      MsgLdrPreparePara msgProp(prop,signs);  // We send this proposal in a prepare message
       Peers recipients = remove_from_peers(this->myid);
       sendMsgLdrPreparePara(msgProp,recipients); 
 
@@ -1494,45 +1482,6 @@ void Handler::preparePara(Just just) { // For leader to do begin a view (prepare
       if (DEBUG2) std::cout << KBLU << nfo() << "bad justification" << justPrep.prettyPrint() << KNRM << std::endl;
     }
   }
-
-  // for (int i = 1; i <= maxBlocksInView; ++i) {
-  //   PBlock block;
-  //   if (i == 1) {
-  //     // First block extends from the justification hash of the last agreed state
-  //     block = createNewBlockPara(just.getRDataPara().getJusth());
-  //   } else {
-  //     // Subsequent blocks extend from the hash of the previous block
-  //     block = createNewBlockPara(prevBlock.hash());
-  //   }
-
-  //   localSeq++; 
-  //   // We create a justification for that block
-  //   // Just justPrep = callTEEpreparePara(block.hash(),just);
-  //   Just justPrep = callTEEpreparePara(block,just);
-  //   if (justPrep.isSet()) {
-  //     if (DEBUG1) std::cout << KMAG << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
-
-  //     this->pblocks[this->view][block.getSeqNumber()-1] = block;
-  //     prevBlock = block;
-  //     // We create a message out of that commitment, which we'll store in our log
-  //     Signs signs = justPrep.getSigns();
-  //     MsgPreparePara msgPrep(justPrep.getRDataPara(),signs);
-
-  //     ParaProposal prop(just,block); // Create a proposal out of that block to send out to the other replicas
-
-  //     // We send this proposal in a prepare message
-  //     MsgLdrPreparePara msgProp(prop,signs);
-  //     Peers recipients = remove_from_peers(this->myid);
-  //     sendMsgLdrPreparePara(msgProp,recipients); 
-
-  //     // We store our own proposal in the log
-  //     this->log.storePrepPara(msgPrep);
-  //   } else {
-  //     if (DEBUG2) std::cout << KBLU << nfo() << "bad justification" << justPrep.prettyPrint() << KNRM << std::endl;
-  //   }
-  // }
-  // auto end = std::chrono::steady_clock::now();
-  // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   stats.addTotalPrepTime(recordTime(start));
 }
 
@@ -1545,11 +1494,9 @@ void Handler::initiatePreparePara(RDataPara rdata) { // For leaders to forward p
   Peers recipients = remove_from_peers(this->myid);
   sendMsgPreparePara(msgPrepPara,recipients);
   // if (DEBUG) std::cout << KBLU << nfo() << "sent prepare-para certificate to backups (" << msgPrepPara.prettyPrint() << ")" << KNRM << std::endl;
-
   // The leader also stores the prepare message
   Just justPcPara = callTEEstorePara(Just(rdata,signs));
   MsgPreCommitPara msgPcPara(justPcPara.getRDataPara(),justPcPara.getSigns());
-
   // We store our own pre-commit in the log
   this->log.storePcPara(msgPcPara);
 }
@@ -1560,13 +1507,9 @@ void Handler::initiatePrecommitPara(RDataPara rdata) { // For leaders to generat
   MsgPreCommitPara msgPcPara(rdata,signs);
   Peers recipients = remove_from_peers(this->myid);
   sendMsgPreCommitPara(msgPcPara,recipients);
-  Just justComPara;
-  justComPara = callTEEstorePara(Just(rdata,signs));
-
+  Just justComPara = callTEEstorePara(Just(rdata,signs));
   // if (DEBUG) std::cout << KBLU << nfo() << "sent pre-commit-para to backups (" << msgPcPara.prettyPrint() << ")" << KNRM << std::endl;
-  
   MsgCommitPara msgComPara(justComPara.getRDataPara(),justComPara.getSigns());
-
   // We store our own commit in the log
   this->log.storeComPara(msgComPara);
 }
@@ -1579,18 +1522,8 @@ void Handler::initiateCommitPara(RDataPara rdata) { // For leaders to generate a
     Peers recipients = remove_from_peers(this->myid);
     sendMsgCommitPara(msgComPara,recipients);
     if (DEBUG) std::cout << KBLU << nfo() << "sent commit-para certificate to backups (" << msgComPara.prettyPrint() << ")" << KNRM << std::endl;
-
     unsigned int highestContinuousSeq = findHighestSeq(rdata.getSeqNumber());
-    // int highestContinuousSeq = 1;
-    // for (int i = 1; i <= rdata.getSeqNumber(); ++i) {
-    //   if (this->log.hasCommitForSeq(this->view, i)) {
-    //     if (DEBUG) std::cout << KBLU << nfo() << "found commit for seq " << i << KNRM << std::endl;
-    //     highestContinuousSeq = i;
-    //   } else {
-    //     break;  
-    //   }
-    // }
-    if (highestContinuousSeq >= lastExecutedSeq) {
+    if (highestContinuousSeq > lastExecutedSeq) {
       executeBlocksFrom(this->view, lastExecutedSeq + 1, highestContinuousSeq);
     }
   }
@@ -1634,8 +1567,6 @@ void Handler::respondToPreCommitJustPara(Just justPc) { // For backups to respon
 Just Handler::callTEEsignPara() {
   auto start = std::chrono::steady_clock::now();
   Just just = tpara.TEEsign(stats);
-  // auto end = std::chrono::steady_clock::now();
-  // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   double time = recordTime(start);
   stats.addTEEsign(time);
   stats.addTEEtime(time);
@@ -1645,8 +1576,6 @@ Just Handler::callTEEsignPara() {
 Just Handler::callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes) {
   auto start = std::chrono::steady_clock::now();
   Just just = tpara.TEEverifyLeaderQC(stats,this->nodes,j, blockHashes);
-  // auto end = std::chrono::steady_clock::now();
-  // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   double time = recordTime(start);
   stats.addTEEprepare(time);
   stats.addTEEtime(time);
@@ -1656,8 +1585,7 @@ Just Handler::callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes) {
 Just Handler::callTEEpreparePara(PBlock block, Just j) {
   auto start = std::chrono::steady_clock::now();
   Just just = tpara.TEEprepare(stats,this->nodes,block,j);
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double time = recordTime(start);
   stats.addTEEprepare(time);
   stats.addTEEtime(time);
   return just;
@@ -1666,20 +1594,17 @@ Just Handler::callTEEpreparePara(PBlock block, Just j) {
 Just Handler::callTEEstorePara(Just j) {
   auto start = std::chrono::steady_clock::now();
   Just just = tpara.TEEstore(stats,this->nodes,j);
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double time = recordTime(start);
   stats.addTEEstore(time);
   stats.addTEEtime(time);
   return just;
 }
 
 void Handler::executeRDataPara(RDataPara rdata) {
-  // Execute
   // TODO: We should wait until we received the block corresponding to the hash to execute
   if (DEBUG0 && DEBUGE) std::cout << KRED << nfo() << "R-EXECUTE-PARA(seq: " << rdata.getSeqNumber() << " v: "<< this->view << "/" <<  "/" << this->maxViews << ":" << time << ")" << stats.toString() << KNRM << std::endl;
   
   replyHashPara(rdata.getProph(), rdata.getSeqNumber());
- 
   this->lastExecutedSeq = rdata.getSeqNumber();
 
   if (DEBUG) std::cout << KBLU << nfo() << "executed block for view=" << this->view << " seq=" << rdata.getSeqNumber() << "max seq=" << maxBlocksInView << KNRM << std::endl;
@@ -1725,7 +1650,6 @@ void Handler::handleEarlierMessagesPara() {
     if (DEBUG) std::cout << KBLU << nfo() << "GOING TO TRY TO HANDLE EARLIER, my view:  " << this->view << KNRM << std::endl;
 
     if (DEBUG) std::cout << KBLU << nfo() << "MY VERIFIED just: " << this->verifiedJust.prettyPrint() << KNRM << std::endl;
-
     if (this->verifiedJust.getRDataPara().getPropv() != this->view) {
       // we don't have the verify message for this view
       MsgVerifyPara verifyMsg = this->log.getVerifyPara(this->view);
@@ -1761,8 +1685,7 @@ void Handler::handleEarlierMessagesPara() {
           if (highestContinuousSeq >= lastExecutedSeq) {
             executeBlocksFrom(this->view, lastExecutedSeq + 1, highestContinuousSeq);
           }
-            //executeRDataPara(justCom.getRDataPara());
-          }
+        }
       } else { // We don't have enough pre-commit signatures
         Signs signsPrep = this->log.getPreparePara(this->view, this->qsize, seqNumber);
         if (signsPrep.getSize() == this->qsize) {
@@ -1794,11 +1717,9 @@ void Handler::startNewViewPara() {
   while (just.getRDataPara().getPropv() <= this->view) { just = callTEEsignPara(); } // generate justifications until we can generate one for the next view
   this->view++; // increment the view -> THE NODE HAS NOW MOVED TO THE NEW-VIEW
   this->pblocks[this->view].resize(this->maxBlocksInView);
-
   lastExecutedSeq = 0; // We reset the last executed sequence number
   if (DEBUG) std::cout << KBLU << nfo() << "new view: " << this->view << "And last executed seq: " << lastExecutedSeq << KNRM << std::endl;
   setTimer(); // We start the timer
-
   // if the lastest justification we've generated is for what is now the current view (since we just incremented it)
   // and round 0, then send a new-view message
   if (just.getRDataPara().getPropv() == this->view && just.getRDataPara().getPhase() == PH1_NEWVIEW) {
@@ -1881,8 +1802,6 @@ void Handler::handleNewViewPara(MsgNewViewPara msg) {
   } else {
     if (DEBUG1) std::cout << KMAG << nfo() << "discarded:" << msg.prettyPrint() << KNRM << std::endl;
   }
-  // auto end = std::chrono::steady_clock::now();
-  // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   double time = recordTime(start);
   stats.addTotalHandleTime(time);
   stats.addTotalNvTime(time);
@@ -1900,43 +1819,32 @@ void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for 
   RDataPara rdataNV = justNV.getRDataPara();
   PBlock b = prop.getBlock();
 
-  // We re-construct the justification generated by the leader AE-TODO: IS THIS NECESSARY?
-  bool vm = verifyJustPara(justNV);
-  bool justIsVerified = justNV == this->verifiedJust;
-
-  // Print the things in one line:
   if (DEBUG) std::cout << KBLU << nfo() << "verifiedJust: " << this->verifiedJust.prettyPrint() << " justNV: " << justNV.prettyPrint() << KNRM << std::endl;
 
-  // Check whether we have already stored, e.g. voted for, a block with the same sequence number
   auto &blocksInView = this->pblocks[this->view];
   auto seqNumber = b.getSeqNumber();
 
-  if (rdataNV.getPropv() >= this->view && vm ) {
-    if (rdataNV.getPropv() == this->view) { // If the message is for the current view we act upon it right away
-      if (justIsVerified) {
-        if(!blocksInView[seqNumber-1].isBlock()){ // This sequence number has not been voted for yet
-          respondToProposalPara(justNV,b);
-        } else {
-          if (DEBUG2) std::cout << KBLU << nfo() << "block with sequence number " << seqNumber << " already exists in this view, can't vote for it!!" << this->view << KNRM << std::endl;
-        }
-      } else {
-        if (rdataNV.getJustv() > verifiedJust.getRDataPara().getJustv()) {
-          if (DEBUG2) std::cout << KBLU << nfo() << "Correct view but havent received the VERIFY yet so can't vote" << KNRM << std::endl;
-          // AE-TODO when i receive the verify message, i should check if the justification is correct and can potentially vote for the block
-          this->log.storePropPara(msg);
-        } else {
-          if (DEBUG2) std::cout << KBLU << nfo() << "bad justification: " << justNV.prettyPrint() << " my view: " << this->view << KNRM << std::endl;
-        }
-      }
-    } else { // If the message is for later, we store it
-      if (DEBUG1) std::cout << KMAG << nfo() << "storing:" << msg.prettyPrint() << KNRM << std::endl;
-      this->log.storePropPara(msg);
-    }
-  } else {
+  if (rdataNV.getPropv() < this->view || !verifyJustPara(justNV)) {
     if (DEBUG1) std::cout << KMAG << nfo() << "discarded:" << msg.prettyPrint() << " my view: " << this->view << KNRM << std::endl;
+    stats.addTotalHandleTime(recordTime(start));
+    return;
   }
-  // auto end = std::chrono::steady_clock::now();
-  // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+  if (rdataNV.getPropv() == this->view) { // If the message is for the current view we act upon it right away
+    if (justNV == this->verifiedJust) {
+      if(!blocksInView[seqNumber-1].isBlock()){ // This sequence number has not been voted for yet
+        respondToProposalPara(justNV,b);
+      } else {
+        if (DEBUG2) std::cout << KBLU << nfo() << "block with sequence number " << seqNumber << " already exists in this view, can't vote for it!!" << this->view << KNRM << std::endl;
+      }
+    } else if (rdataNV.getJustv() > verifiedJust.getRDataPara().getJustv()) {
+      if (DEBUG2) { std::cout << KBLU << nfo() << "Correct view but waiting for VERIFY, cannot vote" << KNRM << std::endl;}
+      this->log.storePropPara(msg);
+    } else if (DEBUG2) { std::cout << KBLU << nfo() << "Invalid justification received, cannot proceed: " << justNV.prettyPrint() << KNRM << std::endl; }
+  } else { // If the message is for later, we store it
+    if (DEBUG1) std::cout << KMAG << nfo() << "storing:" << msg.prettyPrint() << KNRM << std::endl;
+    this->log.storePropPara(msg);
+  }
   stats.addTotalHandleTime(recordTime(start));
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgLdrPreparePara:" << time << KNRM << std::endl;
 }
@@ -1948,46 +1856,40 @@ void Handler::handle_ldrprepare_para(MsgLdrPreparePara msg, const PeerNet::conn_
 
 void Handler::handleRecoverPara(MsgRecoverPara msg) { 
   if (DEBUG) std::cout << KBLU << nfo() << "handling: " << msg.prettyPrint() << KNRM << std::endl;
-  // std::cout << KMAG << nfo() << "In RECOVER" << time << KNRM << std::endl;
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgRecoverPara:" << time << KNRM << std::endl;
+
+  if (!amCurrentLeader()) {return;} // Only the leader should handle this message
+
   View view = msg.rdata.getJustv();
   Just just = Just(msg.rdata, msg.signs);
+  auto missingSeqNumbers = getMissingSeqNumbersForJust(just);
+  if (missingSeqNumbers.empty()) {
+    if (DEBUG) std::cout << KBLU << nfo() << "No missing blocks for view, already initiated VERIFY" << KNRM << std::endl;
+    return; // Exit if no blocks are missing
+  }
 
-  if (amCurrentLeader()){
-    auto missingSeqNumbers = getMissingSeqNumbersForJust(just);
+  if (recoverResponses.find(view) == recoverResponses.end()) {
+    recoverResponses[view] = 0;
+  }
 
-    if (!missingSeqNumbers.empty()) { // If we are missing blocks
-      if (recoverResponses.find(view) == recoverResponses.end()) {
-          recoverResponses[view] = 0;
-        }
-
-        if (verifyJustPara(just)) {
-          for (PBlock &block : msg.blocks) {
-            unsigned int seq = block.getSeqNumber();
-            // Check if we are missing this block
-            if (!pblocks[view][seq-1].isBlock()) {
-              // Check if we already have this block
-              if (DEBUG) std::cout << KBLU << nfo() << "Block found for view=" << view << " seq=" << seq << KNRM << std::endl;
-              pblocks[view][seq-1] = block;
-              auto missingSeqNumbers = getMissingSeqNumbersForJust(just);
-              if (missingSeqNumbers.empty()) {
-                  initiateVerifyPara(Just(msg.rdata, msg.signs));
-              }
-            }
-          }
-        }
-        recoverResponses[view]++;
-        // Check if all blocks are present
-        if (recoverResponses[view] >= qsize) {
-            //AE-TODO verify only up until continuous sequence number
-            //Find up until what seq number we have contionous blocks
+  if (verifyJustPara(just)) {
+    for (PBlock &block : msg.blocks) {
+      unsigned int seq = block.getSeqNumber();
+      if (!pblocks[view][seq-1].isBlock()) { // We are missing the block
+        if (DEBUG) std::cout << KBLU << nfo() << "Recovering block for view=" << view << " seq=" << seq << KNRM << std::endl;
+        this->pblocks[view][seq-1] = block;
+        missingSeqNumbers = getMissingSeqNumbersForJust(just);
+        if (missingSeqNumbers.empty()) {
             initiateVerifyPara(Just(msg.rdata, msg.signs));
-            
-            std::cout << KRED << nfo() << "Failed to recover all blocks for view, will send from highest continous" << view << KNRM << std::endl;
+            break;
         }
-    } else {
-      if (DEBUG) std::cout << KBLU << nfo() << "No missing blocks for view, already initated VERIFY" << KNRM << std::endl;
+      }
     }
+  }
+  recoverResponses[view]++;
+  if (recoverResponses[view] >= qsize) { // If we have received enough responses
+      initiateVerifyPara(Just(msg.rdata, msg.signs));
+      std::cout << KRED << nfo() << "Failed to recover all blocks for view, will send from highest continous" << view << KNRM << std::endl;
   }
 }
 
@@ -2026,7 +1928,6 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
 
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
-  std::vector<Hash> blockHashes = msg.blockHashes;
 
   RDataPara rdata = msg.rdata;
   Signs signs = msg.signs;
@@ -2034,26 +1935,21 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
 
   if (rdata.getPropv() >= this->view) {
     if (rdata.getPropv() == this->view) {
-      auto it = pblocks.find(justV);
       bool hashesMatch = true;
-
-      if (this->view > 0){
-        if (it != this->pblocks.end()) {
-          auto& blocks = it->second;
-          // Check if the number of hashes matches the number of valid blocks
-          if (blockHashes.size() <= blocks.size()) {
-            for (size_t i = 0; i < blockHashes.size(); ++i) {
-              if (blocks[i].isBlock() && blocks[i].hash() != blockHashes[i]) {
-                hashesMatch = false;
-                break;
-              }
-            }
-          } else { hashesMatch = false; }
-        } else { hashesMatch = false; }
+      auto& blocks = pblocks[msg.rdata.getJustv()];
+      if (blocks.size() >= msg.blockHashes.size()) {
+        for (size_t i = 0; i < msg.blockHashes.size(); ++i) {
+          if (!blocks[i].isBlock() || blocks[i].hash() != msg.blockHashes[i]) {
+            hashesMatch = false;
+            break;
+          }
+        }
+      } else {
+        hashesMatch = false;
       }
 
       if (hashesMatch) {
-        Just js = callTEEVerifyPara(Just(rdata,signs), blockHashes);
+        Just js = callTEEVerifyPara(Just(rdata,signs), msg.blockHashes);
         if (js.isSet()){ 
           this->verifiedJust = js;
           if (DEBUG) std::cout << KBLU << nfo() << "verified leader justification" << KNRM << std::endl;
@@ -2066,9 +1962,8 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
         if (DEBUG) std::cout << KBLU << nfo() << "Verify doesn't match" << KNRM << std::endl;
       }
     } else {
-      // Here we possibly know we got left behind
       if (DEBUG1) std::cout << KMAG << nfo() << "storing:" << msg.prettyPrint() << KNRM << std::endl;
-      this->log.storeVerifyPara(msg);
+      this->log.storeVerifyPara(msg); // Here we possibly know we got left behind
     }
   }
 }
@@ -2082,45 +1977,40 @@ void Handler::handlePreparePara(MsgPreparePara msg) { // This is for both for th
     auto start = std::chrono::steady_clock::now();
     if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
     RDataPara rdata = msg.rdata;
-    
     Signs signs = msg.signs;
     unsigned int seqNumber = rdata.getSeqNumber();
 
     if (rdata.getPropv() == this->view) {
-        if (amCurrentLeader()) {
-            // Store the prepare message in the log
-          std::pair<View, unsigned int> blockKey = std::make_pair(this->view, seqNumber);
-          
-          // Return if we have already initiated preparexw certificate for this sequence number
-          if (initiatedPrepareCerts.find(blockKey) != initiatedPrepareCerts.end()) {
-              if (DEBUG) std::cout << KBLU << nfo() << "prepare certificate already initiated for view=" << this->view << ", seqNumber=" << seqNumber << KNRM << std::endl;
-              return;
-          }
-
-          unsigned int numberOfPrepCerts = this->log.storePrepPara(msg);
-          if (numberOfPrepCerts >= this->qsize){
-            if (DEBUG) std::cout << KBLU << nfo() << "I am leader and have enough prepare certs, about to send prepare cert(start pre-commit phase)" << KNRM << std::endl;
-            initiatedPrepareCerts.insert(blockKey); // Add to the set of initiated prepare certs
-            initiatePreparePara(rdata);
-          } else {
-            if (DEBUG) std::cout << KBLU << nfo() << "I have " << numberOfPrepCerts << " prepare certs, need " << this->qsize << KNRM << std::endl;
-          }
-        } else { // Not the leader
-          if ((signs.getSize() == this->qsize) && (!this->log.hasPrepForSeq(this->view, seqNumber)) ) { // check if we have already voted for this sequence number
-              if(DEBUG) std::cout << KBLU << nfo() << "I am backup and about to vote for prepare, e.g. precommit vote" << KNRM << std::endl;
-              this->log.storePrepPara(msg);
-              respondToPrepareJustPara(Just(rdata, signs)); //This ixsx actually a precommit message with prepare qc in it
-          }
+      if (amCurrentLeader()) {
+          // Store the prepare message in the log
+        // std::pair<View, unsigned int> blockKey = std::make_pair(this->view, seqNumber);
+        // Return if we have already initiated prepare certificate for this sequence number
+        // if (initiatedPrepareCerts.find(blockKey) != initiatedPrepareCerts.end()) {
+        //     if (DEBUG) std::cout << KBLU << nfo() << "prepare certificate already initiated for view=" << this->view << ", seqNumber=" << seqNumber << KNRM << std::endl;
+        //     return;
+        // }
+        // unsigned int numberOfPrepCerts = this->log.storePrepPara(msg);
+        if (this->log.storePrepPara(msg) == this->qsize){
+          if (DEBUG) std::cout << KBLU << nfo() << "I am leader and have enough prepare certs, about to send prepare cert(start pre-commit phase)" << KNRM << std::endl;
+          // initiatedPrepareCerts.insert(blockKey); // Add to the set of initiated prepare certs
+          initiatePreparePara(rdata);
+        } 
+        // else {
+        //   if (DEBUG) std::cout << KBLU << nfo() << "I have " << numberOfPrepCerts << " prepare certs, need " << this->qsize << KNRM << std::endl;
+        // }
+      } else { // Not the leader
+        if ((signs.getSize() == this->qsize) && (!this->log.hasPrepForSeq(this->view, seqNumber)) ) { // check if we have already voted for this sequence number
+          if(DEBUG) std::cout << KBLU << nfo() << "I am backup and about to vote for prepare, e.g. precommit vote" << KNRM << std::endl;
+          this->log.storePrepPara(msg);
+          respondToPrepareJustPara(Just(rdata, signs)); //This ixsx actually a precommit message with prepare qc in it
         }
-    } else { // AE-TODO what even is this
-        if (DEBUG1) std::cout << KMAG << nfo() << "storing:" << msg.prettyPrint() << KNRM << std::endl;
-        if (rdata.getPropv() > this->view) {
-            this->log.storePrepPara(msg);
-        }
+      }
+    } else { 
+      if (DEBUG1) std::cout << KMAG << nfo() << "storing:" << msg.prettyPrint() << KNRM << std::endl;
+      if (rdata.getPropv() > this->view) {
+        this->log.storePrepPara(msg);
+      }
     }
-
-    // auto end = std::chrono::steady_clock::now();
-    // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     stats.addTotalHandleTime(recordTime(start));
 }
 
@@ -2139,16 +2029,15 @@ void Handler::handlePrecommitPara(MsgPreCommitPara msg) {
 
   if (propv == this->view && phase == PH1_PRECOMMIT) {
     if (amCurrentLeader()) { // As a leader, we wait for f+1 pre-commits before we combine the messages
-      std::pair<View, unsigned int> blockKey = std::make_pair(this->view, seqNumber);
+      // std::pair<View, unsigned int> blockKey = std::make_pair(this->view, seqNumber);
       // Return if we have already initiated precommit certificate for this sequence number
-      if (initiatedPrecommitCerts.find(blockKey) != initiatedPrecommitCerts.end()) {
-          if (DEBUG) std::cout << KBLU << nfo() << "precommit certificate already initiated for view=" << this->view << ", seqNumber=" << seqNumber << KNRM << std::endl;
-          return;
-      }
-
+      // if (initiatedPrecommitCerts.find(blockKey) != initiatedPrecommitCerts.end()) {
+      //     if (DEBUG) std::cout << KBLU << nfo() << "precommit certificate already initiated for view=" << this->view << ", seqNumber=" << seqNumber << KNRM << std::endl;
+      //     return;
+      // }
       if (this->log.storePcPara(msg) == this->qsize) {
         // Bundle the pre-commits together and send them to the backups
-        initiatedPrecommitCerts.insert(blockKey); 
+        //initiatedPrecommitCerts.insert(blockKey); 
         initiatePrecommitPara(rdata);
       }
     } else { // As a backup:
@@ -2161,11 +2050,8 @@ void Handler::handlePrecommitPara(MsgPreCommitPara msg) {
     if (rdata.getPropv() > this->view) {
       if (DEBUG1) std::cout << KMAG << nfo() << "storing:" << msg.prettyPrint() << KNRM << std::endl;
       this->log.storePcPara(msg);
-      // TODO: we'll have to check whether we have this information later
     }
   }
-  // auto end = std::chrono::steady_clock::now();
-  // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
   stats.addTotalHandleTime(recordTime(start));
 }
 
@@ -2180,7 +2066,7 @@ void Handler::handle_precommit_para(MsgPreCommitPara msg, const PeerNet::conn_t 
 }
 
 unsigned int Handler::findHighestSeq(unsigned int seqNumber){
-  int highestContinuousSeq = 1;
+  int highestContinuousSeq = 0;
   for (int i = 1; i <= seqNumber; ++i) {
     if (this->log.hasCommitForSeq(this->view, i)) {
       if (DEBUG) std::cout << KBLU << nfo() << "found commit for seq " << i << KNRM << std::endl;
@@ -2203,23 +2089,22 @@ void Handler::handleCommitPara(MsgCommitPara msg) {
 
   if (propv == this->view && phase == PH1_COMMIT) {
     if (amCurrentLeader()) { // As a leader, we wait for f+1 commits before we combine the messages
-      std::pair<View, unsigned int> blockKey = std::make_pair(this->view, seqNumber);
-      if (initiatedCommitCerts.find(blockKey) != initiatedCommitCerts.end()) {
-          if (DEBUG) std::cout << KBLU << nfo() << "commit certificate already initiated for view=" << this->view << ", seqNumber=" << seqNumber << KNRM << std::endl;
-          return;
-      }
+      // std::pair<View, unsigned int> blockKey = std::make_pair(this->view, seqNumber);
+      // if (initiatedCommitCerts.find(blockKey) != initiatedCommitCerts.end()) {
+      //     if (DEBUG) std::cout << KBLU << nfo() << "commit certificate already initiated for view=" << this->view << ", seqNumber=" << seqNumber << KNRM << std::endl;
+      //     return;
+      // }
       if (this->log.storeComPara(msg) == this->qsize) {
-        initiatedCommitCerts.insert(blockKey); 
+        //initiatedCommitCerts.insert(blockKey); 
         initiateCommitPara(rdata);
       }
     } else { // As a backup:
       if (signs.getSize() == this->qsize && verifyJustPara(Just(rdata,signs))) {
         this->log.storeComPara(msg);
         unsigned int highestContinuousSeq = findHighestSeq(seqNumber);
-        if (highestContinuousSeq >= lastExecutedSeq) {
+        if (highestContinuousSeq > lastExecutedSeq) {
           executeBlocksFrom(this->view, lastExecutedSeq + 1, highestContinuousSeq);
         }
-       
       }
     }
   } else {
@@ -2231,7 +2116,6 @@ void Handler::handleCommitPara(MsgCommitPara msg) {
       } else { // If we're not the leader, we only store it, if we can verify it
         if (verifyJustPara(Just(rdata,signs))) { this->log.storeComPara(msg); }
       }
-      // TODO: we'll have to check whether we have this information later
     }
   }
   stats.addTotalHandleTime(recordTime(start));
@@ -2265,7 +2149,6 @@ void Handler::executeBlocksFrom(View view, int startSeq, int endSeq) {
         if (DEBUG) std::cout << KBLU << nfo() << "Block data missing, will execute commit data at seq " << (i + 1) << KNRM << std::endl;
         prevBlockExists = false; // Reset extension check flag because the block is missing
       }
-
       // Execute based on commit data regardless of block presence
       RDataPara rdata = this->log.getCommitForSeq(view, i + 1).rdata;  
       if (rdata.getSeqNumber() == i + 1) {
