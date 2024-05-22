@@ -666,8 +666,10 @@ unsigned int Log::storeComPara(MsgCommitPara msg) {
 //AE-TODO Untested
 unsigned int Log::storePropPara(MsgLdrPreparePara msg) {
     ParaProposal prop = msg.prop;
+
     View v = prop.getJust().getRDataPara().getPropv();
-    unsigned int seqNumber = prop.getJust().getRDataPara().getSeqNumber();
+    // unsigned int seqNumber = prop.getJust().getRDataPara().getSeqNumber();
+    unsigned int seqNumber = prop.getBlock().getSeqNumber();
     std::set<PID> signers = msg.signs.getSigners();
 
     auto it1 = this->proposalsPara.find(v);
@@ -693,7 +695,6 @@ unsigned int Log::storePropPara(MsgLdrPreparePara msg) {
 unsigned int Log::storeVerifyPara(MsgVerifyPara msg) {
   RDataPara rdata = msg.rdata;
   View v = rdata.getPropv();
-
   this->verifiesPara[v]=msg;
   return 1;
 }
@@ -702,7 +703,7 @@ unsigned int Log::storeVerifyPara(MsgVerifyPara msg) {
 //AE-TODO : Make sure this is correct
 Just Log::findHighestNvPara(View view) {
     std::map<View,std::set<MsgNewViewPara>>::iterator it1 = this->newviewsPara.find(view);
-    Just just = Just();
+    Just just = Just(RDataType::RDataPara);
     if (it1 != this->newviewsPara.end()) { // there is already an entry for this view
         std::set<MsgNewViewPara> &msgs = it1->second;
         View highestView = 0;
@@ -853,7 +854,7 @@ MsgCommitPara Log::getCommitForSeq(View view, unsigned int seqNumber) {
 Just Log::firstPreparePara(View view, unsigned int seqNumber) {
     // Find the view in the prepares map
     auto itView = this->preparesPara.find(view);
-    Just just = Just();  // 
+    Just just = Just(RDataType::RDataPara);  // 
 
     if (itView != this->preparesPara.end()) {
         // Find the sequence number in the nested map
@@ -871,7 +872,7 @@ Just Log::firstPreparePara(View view, unsigned int seqNumber) {
 Just Log::firstPrecommitPara(View view, unsigned int seqNumber) {
     // Find the view in the prepares map
     auto itView = this->precommitsPara.find(view);
-    Just just = Just();  // Default empty Just object to return if no message is found
+    Just just = Just(RDataType::RDataPara);  // Default empty Just object to return if no message is found
     if (itView != this->precommitsPara.end()) {
         // Find the sequence number in the nested map
         auto itSeq = itView->second.find(seqNumber);
@@ -888,7 +889,7 @@ Just Log::firstPrecommitPara(View view, unsigned int seqNumber) {
 Just Log::firstCommitPara(View view, unsigned int seqNumber) {
     // Find the view in the prepares map
     auto itView = this->commitsPara.find(view);
-    Just just = Just();  // Default empty Just object to return if no message is found
+    Just just = Just(RDataType::RDataPara);  // Default empty Just object to return if no message is found
     if (itView != this->commitsPara.end()) {
         // Find the sequence number in the nested map
         auto itSeq = itView->second.find(seqNumber);

@@ -50,7 +50,7 @@ int main(int argc, char const *argv[]) {
   if (argc > 4) { sscanf(argv[4], "%d", &numViews); }
   std::cout << KYEL << "[" << myid << "]#views=" << numViews << KNRM << std::endl;
 
-  double timeout = 15; // timeout in seconds
+  double timeout = 100; // timeout in seconds
   if (argc > 5) { sscanf(argv[5], "%lf", &timeout); }
   std::cout << KYEL << "[" << myid << "]timeout=" << timeout << KNRM << std::endl;
 
@@ -133,7 +133,8 @@ int main(int argc, char const *argv[]) {
   size = std::max({size,
                   sizeof(MsgNewViewPara),
                   sizeof(MsgPreparePara),
-                  sizeof(MsgRecoverPara),
+                  // sizeof(MsgRecoverPara),
+                  (sizeof(MsgRecoverPara) + maxBlocksInView * sizeof(PBlock)),
                   sizeof(MsgLdrRecoverPara),
                   sizeof(MsgVerifyPara),
                   sizeof(MsgLdrPreparePara),

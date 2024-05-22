@@ -37,6 +37,7 @@ TrustedPara::TrustedPara(PID id, KEY priv, unsigned int q) {
 // increments the (view,phase) pair
 void TrustedPara::increment_node_phase() {
   if (this->phase == PH1_NEWVIEW) {
+    //if (DEBUG) std::cout << "Incrementing phase from NEWVIEW to PARALLEL" << std::endl;
     this->phase = PH1_PARALLEL; //AE-TODO: Make sure the phases make sense
   } else if (this->phase == PH1_RECOVER) {
     this->phase = PH1_VERIFY;
@@ -44,6 +45,7 @@ void TrustedPara::increment_node_phase() {
     this->phase = PH1_PARALLEL;
   } else if (this->phase == PH1_PARALLEL) {
     this->phase = PH1_NEWVIEW;
+    //if (DEBUG) std::cout << "Incrementing view an going to NEWVIEW" << std::endl;
     increment_view();
     //this->view++;
   }
@@ -137,19 +139,10 @@ Just TrustedPara::TEEverifyLeaderQC(Stats &stats, Nodes nodes, Just just, const 
   bool eq_phases_result = ph == PH1_NEWVIEW;
   bool safety_result = prefixLockedInHashes || v2 > this->prefixLockedView;
 
-  // if (DEBUG) {
-  //   std::cout << "TEEverify result: " << teeverif_result << std::endl;
-  //   std::cout << "eq_views result: " << eq_views_result << " (this->view: " << this->view << ", rd.getPropv(): " << rd.getPropv() << ")" << std::endl;
-  //   std::cout << "eq_phases result: " << eq_phases_result << " (ph: " << ph << ", PH1_NEWVIEW: " << PH1_NEWVIEW << ")" << std::endl;
-  //   std::cout << "safety result: " << safety_result << " (prefixLockedInHashes: " << prefixLockedInHashes << ", v2: " << v2 << ", this->prefixLockedView: " << this->prefixLockedView << ")" << std::endl;
-  // }
-
    if (teeverif_result
       && eq_views_result
       && eq_phases_result
       && safety_result) {
-    // return sign(hash, h2, v2);
-    // increment_node_phase(); //Go to VERIFY phase
     return just;
   } 
   else {
@@ -185,9 +178,7 @@ Just TrustedPara::TEEprepare(Stats &stats, Nodes nodes, PBlock block, Just just)
       && this->view == rd.getPropv()
       && ph == PH1_NEWVIEW)
       // && (h2 == this->prefixLockedHash || v2 > this->prefixLockedView)) 
-      { // AE-TODO : Add check if we have voted for this sequnce number
-    //return sign(hash,h2,v2);
-    // if (DEBUG) std::cout << "Storing block with seq number: " << block.getSeqNumber() << std::endl;
+      { 
     storedBlocks[block.getSeqNumber()] = block;
     return signBlock(block.hash(),h2,v2, block.getSeqNumber());
   } else {
@@ -206,8 +197,11 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
   Hash   h  = just.getRDataPara().getProph();
   View   v  = just.getRDataPara().getPropv();
   Phase1 ph = just.getRDataPara().getPhase();
+  Hash justH = just.getRDataPara().getJusth();
+  View justV = just.getRDataPara().getJustv();
   unsigned int seq = just.getRDataPara().getSeqNumber();
-  //if (DEBUG) std::cout << "RDATA: " << just.getRDataPara().prettyPrint() << std::endl;
+
+  // if (DEBUG) std::cout << "IN TEEStore with block with seq number: " << seq << std::endl;
 
   bool qsize_result = just.getSigns().getSize() == this->qsize;
   bool teeverif_result = TEEverify(stats, nodes, just);
@@ -225,11 +219,9 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
       && teeverif_result
       && eq_views_result
       && eq_phases_result) {
-    // if (blockPhases.find(h) != blockPhases.end() && blockPhases[h] == ph) {
-    //   if (DEBUG) std::cout << "Block with hash " << h.prettyPrint() << " has already been voted for in phase " << ph << std::endl;
-    //   return Just(false, RDataPara(), Signs());
-    // }
-    if (seq > this->latestPreparedSeqNumber) {
+    if (v > this->latestPreparedView) {
+      this->latestPreparedHash=h; this->latestPreparedView=v; this->latestPreparedSeqNumber=seq;
+    } else if (v == this->latestPreparedView && seq > this->latestPreparedSeqNumber) {
       this->latestPreparedHash=h; this->latestPreparedView=v; this->latestPreparedSeqNumber=seq;
     }
     if (ph == PH1_PRECOMMIT) { 
@@ -238,8 +230,6 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
       precommitSeqNumbers.insert(seq);
 
       // if (DEBUG) std::cout << "Now checking if we can lock seq: " << seq << std::endl;
-
-      // AE-TODO: If we now have the prefix until some higher block, make sure to lock that one
 
       unsigned int highestContinuousSeq = 0;
       Hash lastValidHash = this->prefixLockedHash;
@@ -252,21 +242,27 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
       }
 
       //if (DEBUG) std::cout << "Checking from seq number: " << checkFrom << "and prefixLockedSeqNumber: " << this->prefixLockedSeqNumber << " and prefixLockedView: " << this->prefixLockedView << " and v: " << v << std::endl;
-
+      bool prevBlockExists = true;
       for (unsigned int i = checkFrom; i <= *precommitSeqNumbers.rbegin(); ++i) {
         if (precommitSeqNumbers.find(i) == precommitSeqNumbers.end()) {
           if (DEBUG) std::cout << "Missing precommit for seq number: " << i << std::endl;
           break;  // Missing a sequence number or block data
         }
-        if (!storedBlocks.count(i)) {
-          if (DEBUG) std::cout << "Missing actual proposal block with seq number: " << i << std::endl;
-          break;
-        }
-        if (i > 1 && !storedBlocks[i].extends(lastValidHash)) {
-          if (DEBUG) std::cout << "Block with seq number: " << i << " does not extend correctly" << std::endl;
-          break;  // Block does not extend correctly
-        }
-        lastValidHash = storedBlocks[i].hash();
+        bool blockExists = storedBlocks.count(i);
+        
+        if (!blockExists) {
+          if (DEBUG) std::cout << "Missing actual proposal block with seq number: " << i << ", would now recover it" << std::endl;
+          prevBlockExists = false;
+          // AE-TODO Actually recover, for now not implemented, Since we know precommit QC exists its fine to continue
+          // break;
+        } else {
+          if (prevBlockExists && (i > 1) && !storedBlocks[i].extends(lastValidHash)) {
+            if (DEBUG) std::cout << "Block with seq number: " << i << " does not extend correctly" << std::endl;
+            break;  // Block does not extend correctly
+          }
+          lastValidHash = storedBlocks[i].hash();
+          prevBlockExists = true;
+        } 
         highestContinuousSeq = i;
       }
 
@@ -277,7 +273,7 @@ Just TrustedPara::TEEstore(Stats &stats, Nodes nodes, Just just) {
         this->prefixLockedSeqNumber = highestContinuousSeq;
       }
     }
-    return signBlock(h,Hash(),View(),seq);
+    return signBlock(h,justH,justV,seq);
   }
   
   if (DEBUG) std::cout << "TEEstore failed" << std::endl;

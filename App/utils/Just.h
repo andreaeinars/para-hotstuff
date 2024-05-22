@@ -24,6 +24,7 @@ class Just {
 
  public:
   Just();
+  Just(RDataType type);
   Just(RData rdata, Sign sign);
   Just(RDataPara rdata, Sign sign);
   Just(RData rdata, Signs signs);

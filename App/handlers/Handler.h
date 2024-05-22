@@ -85,7 +85,7 @@ class Handler {
   Just justNV;
   std::string nfo(); // used to print debugging info
 
-  Just verifiedJust; // just used for parallel
+  Just verifiedJust = Just(RDataType::RDataPara); // just used for parallel
 
   // ------------------------------------------------------------
   // Common Protocol Functions
@@ -96,6 +96,7 @@ class Handler {
   bool timeToStop();
   void recordStats();
   void setTimer();
+  double recordTime(std::chrono::steady_clock::time_point start);
 
   unsigned int getLeaderOf(View v); // returns the leader of view 'v'
   unsigned int getCurrentLeader(); // returns the current leader
@@ -201,6 +202,7 @@ class Handler {
 
   void executeRDataPara(RDataPara rdata);
   void executeBlocksFrom(View view, int startSeq, int endSeq);
+  unsigned int findHighestSeq(unsigned int seqNumber);
 
 
   std::vector<unsigned int> getMissingSeqNumbersForJust(Just justNV);

@@ -2,6 +2,14 @@
 
 Just::Just() : set(false), type(RDataType::RData), rdata() {}
 
+Just::Just(RDataType type) : set(false), type(type) {
+    if (type == RDataType::RData) {
+        rdata = RData();  // Initialize with default RData
+    } else if (type == RDataType::RDataPara) {
+        rdataPara = RDataPara();  // Initialize with default RDataPara
+    }
+}
+
 Just::Just(RData rdata, Sign sign) {
   this->set = true;
   this->type = RDataType::RData;

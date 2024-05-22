@@ -65,7 +65,7 @@ std::string phase2stringPara(Phase1 phase) {
 
 
 std::string RDataPara::prettyPrint() {
-  return ("RDATA[" + (this->proph).prettyPrint() + "," + std::to_string(this->propv)
+  return ("RDATA-P[" + (this->proph).prettyPrint() + "," + std::to_string(this->propv)
           + "," + (this->justh).prettyPrint() + "," + std::to_string(this->justv)
           + "," + phase2stringPara(this->phase) + "," + std::to_string(this->seqNumber)
           + "]");

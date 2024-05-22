@@ -247,7 +247,7 @@ struct MsgNewViewPara {
   void serialize(salticidae::DataStream &s) const { s << rdata << signs; }
 };
 
-struct MsgRecoverPara { // TODO: Actually implement this
+struct MsgRecoverPara { 
   static const uint8_t opcode = HDR_RECOVER_PARA;
   salticidae::DataStream serialized;
   RDataPara rdata;
