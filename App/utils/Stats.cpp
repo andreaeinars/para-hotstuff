@@ -58,6 +58,9 @@ unsigned int Stats::getCryptoVerifNum() { return this->cryptoVerifNum; }
 double Stats::getCryptoSignTime()  { return this->cryptoSignTime; }
 double Stats::getCryptoVerifTime() { return this->cryptoVerifTime; }
 
+void Stats::incrementRecover() { this->recoverTimes++; }
+unsigned int Stats::getRecoverTimes() { return this->recoverTimes; }
+
 Times Stats::getTotalHandleTime(unsigned int quant) {
   std::multiset<double> l = this->handleTimes;
   unsigned int k = 0; // number of values to remove from both sides

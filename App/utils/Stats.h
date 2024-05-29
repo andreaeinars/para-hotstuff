@@ -26,6 +26,7 @@ private:
 
   unsigned int id        = 0;
   unsigned int execViews = 0;
+  unsigned int recoverTimes = 0;
 
   double TEEverify       = 0.0;
   double TEEsign         = 0.0;
@@ -65,6 +66,10 @@ public:
   void addTotalViewTime(double v);
   void addTotalPrepTime(double v);
   void addTotalNvTime(double v);
+
+  void incrementRecover();
+
+  unsigned int getRecoverTimes();
 
   void startExecTime(View v, Time t);
   void endExecTime(View v, Time t);

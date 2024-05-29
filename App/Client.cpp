@@ -121,7 +121,8 @@ void printStats() {
   if (DEBUGC) std::cout << KMAG << cnfo() << "latency=" << latency << KNRM << std::endl;
 
   std::ofstream f(statsThroughputLatency);
-  f << std::to_string(throughput) << " " << std::to_string(latency);
+  //f << std::to_string(throughput) << " " << std::to_string(latency);
+  f << std::to_string(throughput) << " " << std::to_string(latency) << " " << std::to_string(numInstances);
   f.close();
 
   if (DEBUGC) { std::cout << KMAG << cnfo() << "#before=" << execTrans.size() << ";#after=" << allLatencies.size() << KNRM << std::endl; }

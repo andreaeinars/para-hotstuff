@@ -5,6 +5,7 @@ test.py
 config
 __pycache__/
 bla.cpp
+bla.py
 App/params.h
 output.txt
 usable_stats/

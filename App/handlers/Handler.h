@@ -20,6 +20,11 @@
 #include "salticidae/event.h"
 #include "salticidae/network.h"
 #include "salticidae/stream.h"
+#include <random>
+#include <csignal>
+#include <atomic>
+
+
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -33,6 +38,7 @@ using ClientNfo   = std::tuple<bool,unsigned int,unsigned int,ClientNet::conn_t>
 using Clients     = std::map<CID,ClientNfo>;
 using rep_queue_t = salticidae::MPSCQueueEventDriven<std::pair<TID,CID>>;
 using Time        = std::chrono::time_point<std::chrono::steady_clock>;
+
 
 class Handler {
  private:
@@ -48,7 +54,7 @@ class Handler {
   unsigned int maxViews = 4;     // 0 means no constraints
   KeysFun kf;                    // To access crypto functions
   unsigned int maxBlocksInView = 10;
-
+  float forceRecover = 0.0f;
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
   PeerNet pnet;
@@ -66,17 +72,12 @@ class Handler {
   std::list<Transaction> transactions; // current waiting to be processed
   std::map<View,Block> blocks; // blocks received in each view
   std::map<View,JBlock> jblocks; // blocks received in each view (Chained baseline)
-
-  // std::map<View, std::vector<PBlock>> pblocks;  //blocks received in each view (Parallel baseline)
-  // std::map<View, std::array<PBlock, maxBlocksInView>> pblocks;
   std::map<View, std::vector<PBlock>> pblocks;
 
-  Log log; // log of messages
+  std::default_random_engine generator;
+  std::uniform_real_distribution<float> distribution;
 
-  // Because now there can be multiple justifications for multiple blocks
-  // std::set<std::pair<View, unsigned int>> initiatedPrepareCerts;
-  // std::set<std::pair<View, unsigned int>> initiatedPrecommitCerts ;
-  // std::set<std::pair<View, unsigned int>> initiatedCommitCerts;
+  Log log; // log of messages
 
   std::map<View, unsigned int> recoverResponses;
 
@@ -86,7 +87,6 @@ class Handler {
   std::string nfo(); // used to print debugging info
 
   Just verifiedJust = Just(RDataType::RDataPara); // just used for parallel
-
   // ------------------------------------------------------------
   // Common Protocol Functions
   // ------------------------------------------------------------
@@ -250,9 +250,16 @@ class Handler {
   void handle_commit_para(MsgCommitPara msg, const PeerNet::conn_t &conn);
 
   void replyHashPara(Hash hash, unsigned int seq);
+  void changeView(View view);
 
  public:
-  Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView);
+  Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView, float forceRecover);
+  
+  static std::atomic<bool> pauseRequested;
+  static std::atomic<bool> resumeRequested;
+  static std::atomic<bool> isPaused;
+
+  static void signalHandler(int signal);
 };
 
 

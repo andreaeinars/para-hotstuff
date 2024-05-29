@@ -23,13 +23,34 @@
 #include "utils/Nodes.h"
 #include "utils/KeysFun.h"
 #include "handlers/Handler.h"
+#include <csignal>
+#include <atomic>
 
+
+
+std::atomic<bool> pauseRequested(false);
+std::atomic<bool> resumeRequested(false);
+
+void signalHandler(int signal) {
+    if (signal == SIGUSR1) {
+        std::cout << "Handling SIGUSR1 - Pausing operations." << std::endl;
+        pauseRequested.store(true);
+    } else if (signal == SIGUSR2) {
+        std::cout << "Handling SIGUSR2 - Resuming operations." << std::endl;
+        resumeRequested.store(true);
+    } else {
+        std::cout << "Handling signal: " << signal << std::endl;
+    }
+}
 
 
 int main(int argc, char const *argv[]) {
   fd_set read_fds;
   fd_set write_fds;
   KeysFun kf;
+
+  std::signal(SIGUSR1, signalHandler);
+  std::signal(SIGUSR2, signalHandler);
 
   // Geting inputs
   if (DEBUG) std::cout << KYEL << "parsing inputs" << KNRM << std::endl;
@@ -50,13 +71,17 @@ int main(int argc, char const *argv[]) {
   if (argc > 4) { sscanf(argv[4], "%d", &numViews); }
   std::cout << KYEL << "[" << myid << "]#views=" << numViews << KNRM << std::endl;
 
-  double timeout = 15; // timeout in seconds
+  double timeout = 5; // timeout in seconds
   if (argc > 5) { sscanf(argv[5], "%lf", &timeout); }
   std::cout << KYEL << "[" << myid << "]timeout=" << timeout << KNRM << std::endl;
 
   unsigned int maxBlocksInView = 10;  // default value
   if (argc > 6) { sscanf(argv[6], "%d", &maxBlocksInView); }
   std::cout << KYEL << "[" << myid << "]maxBlocksInView=" << maxBlocksInView << KNRM << std::endl;
+
+  float forceRecover = 0.0f;  // default value
+  if (argc > 7) { sscanf(argv[7], "%f", &forceRecover); }
+  std::cout << KYEL << "[" << myid << "]forceRecover=" << forceRecover << KNRM << std::endl;
 
 
 
@@ -158,7 +183,7 @@ int main(int argc, char const *argv[]) {
   ClientNet::Config cconfig;
   cconfig.max_msg_size(2*size);
   if (DEBUG1) std::cout << KYEL << "[" << myid << "]starting handler" << KNRM << std::endl;
-  Handler handler(kf,myid,timeout,constFactor,numFaults,numViews,nodes,priv,pconfig,cconfig, maxBlocksInView);
+  Handler handler(kf,myid,timeout,constFactor,numFaults,numViews,nodes,priv,pconfig,cconfig, maxBlocksInView, forceRecover);
 
   return 0;
 };

@@ -2,22 +2,24 @@ import multiprocessing
 from datetime import datetime
 
 ## Parameters
-faults       = [1,2,4] #[1,2,4,10] #[1,2,4,10,20,30,40] #[1,2,4,6,8,10,12,14,20,30] # list of numbers of faults
-repeats      = 2 #10 #50 #5 #100 #2     # number of times to repeat each experiment
+faults       = [1] #[1,2,4,10] #[1,2,4,10,20,30,40] #[1,2,4,6,8,10,12,14,20,30] # list of numbers of faults
+repeats      = 1 #10 #50 #5 #100 #2     # number of times to repeat each experiment
 repeatsL2    = 1
 #
-numViews     = 10     # number of views in each run
-cutOffBound  = 600     # stop experiment after some time
-maxBlocksInView = [4,8]
+numViews     = 30     # number of views in each run
+cutOffBound  = 200     # stop experiment after some time
+maxBlocksInView = [2]
+forceRecover = 0  # to force the recovery of the nodes
+
 #
 numClients   = 1     # number of clients
 numNonChCls  = 1     # number of clients for the non-chained versions
 numChCls     = 1     # number of clients for the chained versions
 numClTrans   = 1     # number of transactions sent by each clients
 sleepTime    = 0     # time clients sleep between 2 sends (in microseconds)
-timeout      = 15     # timeout before changing changing leader (in seconds)
+timeout      = 5     # timeout before changing changing leader (in seconds)
 #
-numTrans      = 400    # number of transactions
+numTrans      = 100    # number of transactions
 payloadSize   = 0 #256 #0 #256 #128      # total size of a transaction
 useMultiCores = True
 numMakeCores  = multiprocessing.cpu_count()  # number of cores to use to make
@@ -43,6 +45,7 @@ displayApp   = "open"
 logScale     = True
 recompile = True # to recompile the code
 deadNodes    = False # For some experiments we start with f nodes dead
+crash       = 0 # For some experiments we crash the nodes
 
 # if deadNodes then we go with less views and give ourselves more time
 if deadNodes:
@@ -53,6 +56,7 @@ quantileSize = 20 # For some experiments we remove the outliers
 
 # don't change, those are hard coded in the C++ code:
 statsdir     = "stats"        # stats directory (don't change, hard coded in C++)
+savedir      = "stats"        
 params       = "App/params.h" # (don't change, hard coded in C++)
 config       = "App/config.h" # (don't change, hard coded in C++)
 addresses    = "config"       # (don't change, hard coded in C++)
@@ -66,7 +70,7 @@ allLocalPorts = []    # list of all port numbers used in local experiments
 
 dateTimeObj  = datetime.now()
 timestampStr = dateTimeObj.strftime("%d-%b-%Y-%H:%M:%S.%f")
-pointsFile   = statsdir + "/points-" + timestampStr
+pointsFile   = savedir + "/points-" + timestampStr
 abortedFile  = statsdir + "/aborted-" + timestampStr
 plotFile     = statsdir + "/plot-" + timestampStr + ".png"
 

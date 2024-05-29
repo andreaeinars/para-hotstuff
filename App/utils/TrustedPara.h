@@ -6,7 +6,11 @@
 #include "Stats.h"
 #include "PBlock.h"
 
-// AE-TODO
+struct PrecommitData {
+    Hash blockHash;
+    View view;
+};
+
 class TrustedPara {
 
  private:
@@ -22,10 +26,12 @@ class TrustedPara {
   PID    id;             // unique identifier
   KEY    priv;           // private key
   unsigned int qsize;    // quorum size
-  std::map<unsigned int, Hash> precommitBlocks; // Map to store precommit blocks by their sequence number
-  std::set<unsigned int> precommitSeqNumbers; 
-  std::map<unsigned int, View> precommitViews;
-  std::map<unsigned int, PBlock> storedBlocks;
+  // std::map<unsigned int, Hash> precommitBlocks; // Map to store precommit blocks by their sequence number
+  // std::set<unsigned int> precommitSeqNumbers; 
+  // std::map<unsigned int, View> precommitViews;
+
+  std::map<unsigned int, PrecommitData> precommitData;
+
 
   Just sign(Hash h1, Hash h2, View v2, unsigned int seqNumber);
   Just signBlock(Hash h1, Hash h2, View v2, unsigned int seqNumber);
@@ -35,6 +41,7 @@ class TrustedPara {
   void increment_node_phase();
   void increment_view();
   void set_phase(Phase1 phase);
+  void changeView(View v);
   TrustedPara();
   TrustedPara(unsigned int id, KEY priv, unsigned int q);
 
@@ -42,7 +49,7 @@ class TrustedPara {
   Just TEEsignBlock(Stats &stats, Hash blockHash);
   
   Just TEEprepare(Stats &stats, Nodes nodes, PBlock block, Just just);
-  Just TEEstore(Stats &stats, Nodes nodes, Just just);
+  Just TEEstore(Stats &stats, Nodes nodes, Just just, std::function<PBlock(unsigned int)> getBlockFunc);
   bool TEEverify(Stats &stats, Nodes nodes, Just just);
   Just TEEverifyLeaderQC(Stats &stats, Nodes nodes, Just just, const std::vector<Hash> &blockHashes);
 };

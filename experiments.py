@@ -10,6 +10,7 @@ import glob
 import argparse
 from enum import Enum
 import re
+import random 
 
 from exp_params import *
 
@@ -45,7 +46,8 @@ def clearStatsDir():
     files4 = glob.glob(statsdir+"/crypto*")
     files5 = glob.glob(statsdir+"/done*")
     files6 = glob.glob(statsdir+"/client-throughput-latency*")
-    for f in files0 + files1 + files2 + files3 + files4 + files5 + files6:
+    files7 = glob.glob(statsdir+"/client-stats/*")
+    for f in files0 + files1 + files2 + files3 + files4 + files5 + files6 + files7:
         os.remove(f)
 
 def mkParams(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView=0):
@@ -102,7 +104,159 @@ def mkApp(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView=0)
         subprocess.call(["make","clean"])
         subprocess.call(["make","-j",str(ncores),"server","client"])
 
-def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance, maxBlocksInView=0):
+def schedule_pauses_and_resumes_2(subsReps, totalTime, numFaults):
+    events = []
+    crashed_nodes = {}  # Tracks when each node is set to recover
+    time_since_last_crash = float('inf')  # Tracks time since the last crash for gap enforcement
+    min_recovery_gap = 6  # Minimum gap between crashes
+
+    for current_time in range(totalTime):
+        # Recover nodes as their recovery times are reached
+        for node, recovery_time in list(crashed_nodes.items()):
+            if recovery_time <= current_time:
+                events.append((recovery_time, "recover", node))
+                del crashed_nodes[node]
+                # After a recovery, reset time_since_last_crash to enforce the minimum gap before next crash
+                time_since_last_crash = 0
+
+        # Crash new nodes if the gap after the last recovery has been respected and we are under fault limit
+        if time_since_last_crash >= min_recovery_gap and len(crashed_nodes) < numFaults:
+            available_nodes = [n for n in subsReps if n not in crashed_nodes]
+            num_to_crash = min(numFaults - len(crashed_nodes), len(available_nodes))  # Number of nodes we can still crash
+            nodes_to_crash = random.sample(available_nodes, num_to_crash)
+
+            for node in nodes_to_crash:
+                # Schedule the crash immediately or slightly in the future within allowable time
+                crash_time = current_time + random.randint(0, 3)  # Less randomization to increase event frequency
+                recovery_duration = random.randint(3, 15)
+
+                # Check that the total duration fits within the allowed time
+                if crash_time + recovery_duration <= totalTime:
+                    events.append((crash_time, "crash", node))
+                    crashed_nodes[node] = crash_time + recovery_duration
+                    # Reset to -1 to ensure gap is calculated from now
+                    time_since_last_crash = -1
+
+        # Increment the gap counter if no new crash has occurred
+        if time_since_last_crash >= 0:
+            time_since_last_crash += 1
+
+    # Append remaining recoveries after the simulation end
+    for node, recovery_time in crashed_nodes.items():
+        if recovery_time <= totalTime:
+            events.append((recovery_time, "recover", node))
+
+    events.sort(key=lambda x: x[0])
+    return events
+
+
+def schedule_pauses_and_resumes(subsReps, totalTime, numFaults):
+    events = []
+    crashed_nodes = {}  # Tracks when each node is set to recover
+    time_since_last_crash = float('inf')  # Tracks time since the last crash for gap enforcement
+    min_recovery_gap = 6  # Minimum gap between crashes
+
+    for current_time in range(totalTime):
+        # Recover nodes as their recovery times are reached
+        for node, recovery_time in list(crashed_nodes.items()):
+            if recovery_time <= current_time:
+                events.append((recovery_time, "recover", node))
+                del crashed_nodes[node]
+                # After a recovery, reset time_since_last_crash to enforce the minimum gap before next crash
+                time_since_last_crash = 0
+
+        # Only consider crashing a new node if the gap after the last recovery has been respected
+        if time_since_last_crash >= min_recovery_gap:
+            if len(crashed_nodes) < numFaults:
+                available_nodes = [n for n in subsReps if n not in crashed_nodes]
+                if available_nodes:
+                    node = random.choice(available_nodes)
+                    # Schedule the crash immediately or slightly in the future within allowable time
+                    crash_time = current_time + random.randint(0, 3)  # Less randomization to increase event frequency
+                    recovery_duration = random.randint(3, 15)
+
+                    # Check that the total duration fits within the allowed time
+                    if crash_time + recovery_duration <= totalTime:
+                        events.append((crash_time, "crash", node))
+                        crashed_nodes[node] = crash_time + recovery_duration
+                        # Reset to -1 to ensure gap is calculated from now
+                        time_since_last_crash = -1
+                    else:
+                        # Handle the case where the calculated time exceeds totalTime
+                        continue
+
+        # Increment the gap counter if no new crash has occurred
+        if time_since_last_crash >= 0:
+            time_since_last_crash += 1
+
+    # Append remaining recoveries after the simulation end
+    for node, recovery_time in crashed_nodes.items():
+        if recovery_time <= totalTime:
+            events.append((recovery_time, "recover", node))
+
+    events.sort(key=lambda x: x[0])
+    return events
+
+
+# def schedule_pauses_and_resumes(subsReps, totalTime, pause_duration, numFaults):
+#     """Schedule pauses and resumes for random nodes at different times during the execution."""
+#     events = []
+#     available_nodes = subsReps.copy()
+
+#     # Generate pause and resume events
+#     for _ in range(numFaults):
+#         if not available_nodes:
+#             break
+#         node = random.choice(available_nodes)
+#         available_nodes.remove(node)
+#         pause_time = random.randint(0, min(totalTime // 2, totalTime - pause_duration))  # Schedule pauses early
+#         resume_time = pause_time + pause_duration
+
+#         pause_time = 3
+#         resume_time = 8
+
+#         events.append((pause_time, "crash", node))
+#         events.append((resume_time, "recover", node))
+
+
+#     # Sort events by time
+#     events.sort(key=lambda x: x[0])
+#     return events
+
+def get_server_pid(container_name):
+    """Retrieve the PID of the server process within the specified Docker container."""
+    try:
+        cmd = f"docker exec {container_name} ps aux | awk '$11==\"./server\" {{print $2}}'"
+        pid = subprocess.check_output(cmd, shell=True).decode().strip()
+        if pid:
+            return pid
+        else:
+            print(f"No server process found in Docker container {container_name}")
+            return None
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to find server PID in container {container_name}: {str(e)}")
+        return None
+
+def send_signal_to_docker_container(container_name, signal_type):
+    """Send a signal to the main process within a Docker container."""
+    try:
+        pid = get_server_pid(container_name)
+        if pid:
+            cmd = f"docker exec {container_name} kill -{signal_type} {pid}"
+            subprocess.run(cmd, shell=True, check=True)
+            print(f"Signal {signal_type} sent to PID {pid} in Docker container {container_name and pid}")
+        else:
+            print(f"No server process PID available for container {container_name}")
+    except:
+        pass
+
+def crash_container(dockerInstance):
+   send_signal_to_docker_container(dockerInstance, 'USR1')  # Pause the application
+
+def recover_container(dockerInstance):
+   send_signal_to_docker_container(dockerInstance, 'USR2') 
+
+def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance, maxBlocksInView=0, forceRecover=0):
     subsReps    = [] # list of replica subprocesses
     subsClients = [] # list of client subprocesses
     numReps = (constFactor * numFaults) + 1
@@ -134,7 +288,7 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
         # we give some time for the nodes to connect gradually
         if (i%10 == 5):
             time.sleep(2)
-        cmd = f"{server} {i} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView}"
+        cmd = f"{server} {i} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover}"
         #cmd = " ".join([server, str(i), str(numFaults), str(constFactor), str(numViews), str(newtimeout)])
         if runDocker:
             dockerInstance = dockerBase + str(i)
@@ -161,11 +315,34 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
 
     totalTime = 0
 
+    # print("SUBREPS: ", subsReps)
+
+    if crash == 0.5:
+        events = schedule_pauses_and_resumes(subsReps, cutOffBound, numFaults)
+    elif crash == 1:
+        events = schedule_pauses_and_resumes_2(subsReps, cutOffBound, numFaults)
+    # print("EVENTS:", events)
+
     remaining = subsReps.copy()
     # We wait here for all processes to complete
     # but we stop the execution if it takes too long (cutOffBound)
     while 0 < len(remaining) and totalTime < cutOffBound:
-        print("remaining processes:", remaining)
+        # print("Current time: ", totalTime)
+        #print("remaining processes:", remaining, " len events: ", len(events))
+        # for event in events:
+        #     print("EVENT: ", event)
+        if crash > 0 :
+            while events and events[0][0] <= totalTime:
+                event_time, action, (t, i, p) = events.pop(0)
+                dockerInstance = dockerBase + str(i)
+
+                if action == "crash":
+                    crash_container(dockerInstance)
+                elif action == "recover":
+                    recover_container(dockerInstance)
+        
+                print(f"{action} node {i} at time {event_time}")
+
         # We filter out the ones that are done. x is of the form (t,i,p)
         if runDocker:
             rem = remaining.copy()
@@ -174,9 +351,11 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
                 cmd_check_dir = "if [ -d /app/stats ]; then find /app/stats -name 'done-*' | wc -l; else echo 0; fi"
                 cmd = docker + " exec -t " + dockerInstance + " bash -c \"" + cmd_check_dir + "\""
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
-                out = int(result)
-                if 0 < int(out):
-                    remaining.remove((t,i,p))
+                if result.isdigit() and int(result) > 0:
+                    remaining.remove((t, i, p))
+                # out = int(result)
+                # if 0 < int(out):
+                #     remaining.remove((t,i,p))
         else:
             remaining = list(filter(lambda x: 0 == len(glob.glob(statsdir+"/done-"+str(x[1])+"*")), remaining))
         time.sleep(1)
@@ -212,14 +391,21 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
     if runDocker:
         # if running in docker mode, we kill the processes & copy+remove the stats file to this machine
         for i in lall:
+            print("Now going to copy from: ", i)
             dockerInstance = dockerBase + i
             kcmd = "killall -q server client; fuser -k " + ports
             subprocess.run([docker + " exec -t " + dockerInstance + " bash -c \"" + kcmd + "\""], shell=True) #, check=True)
             src = dockerInstance + ":/app/" + statsdir + "/."
-            dst = statsdir + "/"
+
+            if 'c' in i:
+                dst = statsdir + "/client-stats/"
+            else:
+                dst = statsdir + "/"
             subprocess.run([docker + " cp " + src + " " + dst], shell=True, check=True)
+
             rcmd = "rm /app/" + statsdir + "/*"
             subprocess.run([docker + " exec -t " + dockerInstance + " bash -c \"" + rcmd + "\""], shell=True) #, check=True)
+           
     else:
         subprocess.run(["killall -q server client; fuser -k " + ports], shell=True) #, check=True)
 
@@ -231,8 +417,9 @@ def printNodePoint(protocol,numFaults,tag,val, maxBlocksInView=0):
 
 def printNodePointComment(protocol,numFaults,instance,repeats, maxBlocksInView=0):
     protocol_name = f"{protocol.value}-{maxBlocksInView}BLOCKS" if 'PARALLEL_HOTSTUFF' in protocol.value and maxBlocksInView > 0 else protocol.value
+    #numViewsParaLoc = -(numViews // -maxBlocksInView)  
     f = open(pointsFile, 'a')
-    f.write("# protocol="+protocol_name+" regions=local "+" payload="+str(payloadSize)+" faults="+str(numFaults)+" instance="+str(instance)+" repeats="+str(repeats)+"\n")
+    f.write("# protocol="+protocol_name+" regions=local "+" payload="+str(payloadSize)+" faults="+str(numFaults)+" instance="+str(instance)+" repeats="+str(repeats) + "\n")
     f.close()
 
 def printNodePointParams():
@@ -246,6 +433,8 @@ def printNodePointParams():
     text += " repeats2="+str(repeatsL2)
     text += " views="+str(numViews)
     text += " regions=local"
+    text += " netvar="+str(networkVar)
+    text += " numTrans="+str(numTrans)
     text += "\n"
     f.write(text)
     f.close()
@@ -260,6 +449,10 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
         "crypto-verif": {"val": 0.0, "num": 0},
         "crypto-num-sign": {"val": 0.0, "num": 0},
         "crypto-num-verif": {"val": 0.0, "num": 0},
+        "client-throughput-view": {"val": 0.0, "num": 0},
+        "client-latency-view": {"val": 0.0, "num": 0},
+        "client-num-instances": {"val": 0.0, "num": 0},
+        "recover-times": {"val": 0.0, "num": 0}
     }
 
     printNodePointComment(protocol, numFaults, instance, repeats, maxBlocksInView)
@@ -276,11 +469,33 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
                 "crypto-verif": float(data[6]),
                 "crypto-num-sign": int(data[3]),
                 "crypto-num-verif": int(data[5]),
+                "recover-times": int(data[7])
             }
             for metric, value in metric_values.items():
                 metrics[metric]["val"] += value
                 metrics[metric]["num"] += 1
                 printNodePoint(protocol, numFaults, metric, value, maxBlocksInView)
+
+    # Read client stats
+    client_files = glob.glob(statsdir + "/client-stats/client-throughput-latency-*")
+    for filename in client_files:
+        with open(filename, "r") as f:
+            data = f.read().split()
+            throughput_view = float(data[0])
+            latency_view = float(data[1])
+            num_instances = int(data[2])
+
+            metrics["client-throughput-view"]["val"] += throughput_view
+            metrics["client-throughput-view"]["num"] += 1
+            metrics["client-latency-view"]["val"] += latency_view
+            metrics["client-latency-view"]["num"] += 1
+            metrics["client-num-instances"]["val"] += num_instances
+            metrics["client-num-instances"]["num"] += 1
+
+            # Include client metrics into points
+            printNodePoint(protocol, numFaults, "client-throughput-view", throughput_view, maxBlocksInView)
+            printNodePoint(protocol, numFaults, "client-latency-view", latency_view, maxBlocksInView)
+            printNodePoint(protocol, numFaults, "client-num-instances", num_instances, maxBlocksInView)
 
     # Calculate averages
     results = {metric: metrics[metric]["val"] / metrics[metric]["num"] if metrics[metric]["num"] > 0 else 0.0 for metric in metrics}
@@ -291,7 +506,8 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
 
     return (results["throughput-view"], results["latency-view"], results["handle"],
             results["crypto-sign"], results["crypto-verif"],
-            results["crypto-num-sign"], results["crypto-num-verif"])
+            results["crypto-num-sign"], results["crypto-num-verif"],results["client-throughput-view"], 
+            results["client-latency-view"], results["client-num-instances"])
 
 def stop_and_remove_container(instance):
     subprocess.run([docker + " stop " + instance], shell=True)
@@ -358,7 +574,7 @@ def stopContainers(numReps,numClients):
         stop_and_remove_container(instance)
         stop_and_remove_container(instancex)
 
-def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, numRepeats, maxBlocksInView=0):
+def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, numRepeats, maxBlocksInView=0, forceRecover=0):
     def log_status(i = None):
         print("<<<<<<<<<<<<<<<<<<<<", end="")
         print("protocol=", protocol.value)
@@ -380,6 +596,9 @@ def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, num
         "cryptoVerifs": [],
         "cryptoNumSigns": [],
         "cryptoNumVerifs": [],
+        "clientThroughputViews": [],
+        "clientLatencyViews": [],
+        "clientNumInstances": []
     }
 
     numReps = (constFactor * numFaults) + 1
@@ -396,7 +615,7 @@ def computeAvgStats(recompile, protocol, constFactor, numClTrans, sleepTime, num
         log_status(i)
 
         clearStatsDir()
-        execute(protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, i, maxBlocksInView)
+        execute(protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, i, maxBlocksInView, forceRecover)
         results = computeStats(protocol, numFaults, i, numRepeats, maxBlocksInView)
 
         if all(result > 0 for result in results):
@@ -598,7 +817,8 @@ def runExperiments():
 
         if runPara: # Chained HotStuff-like baseline
             for maxBlocks in maxBlocksInView:
-                computeAvgStats(recompile,protocol=Protocol.PARA,constFactor=3,numClTrans=numClTrans,sleepTime=sleepTime,numViews=numViews,cutOffBound=cutOffBound,numFaults=numFaults,numRepeats=repeats, maxBlocksInView=maxBlocks)
+                #numViewsPara = -(numViews // -maxBlocks) # Want to ceil the division, and we want to process the same amount of blocks as in the other protocols instead of views
+                computeAvgStats(recompile,protocol=Protocol.PARA,constFactor=3,numClTrans=numClTrans,sleepTime=sleepTime,numViews=numViews,cutOffBound=cutOffBound,numFaults=numFaults,numRepeats=repeats, maxBlocksInView=maxBlocks, forceRecover=forceRecover)
         else:
             (0.0,0.0,0.0,0.0)
 
@@ -619,7 +839,11 @@ parser.add_argument("--netvar",     type=int, default=0,   help="variation of th
 parser.add_argument("--views",      type=int, default=0,   help="number of views to run per experiments")
 parser.add_argument("--faults",     type=str, default="",  help="the number of faults to test, separated by commas: 1,2,3,etc.")
 parser.add_argument("--payload",    type=int, default=0,   help="size of payloads in Bytes")
-parser.add_argument("--maxBlocksInView", type=int, default=10, help="Maximum number of blocks in each view for Parallel HotStuff")
+parser.add_argument("--maxBlocksInView", type=str, default="", help="Maximum number of blocks in each view for Parallel HotStuff")
+parser.add_argument("--numTrans", type=int, default=100, help="Maximum number of blocks in each view for Parallel HotStuff")
+parser.add_argument("--dir", type=str, default="stats", help="Maximum number of blocks in each view for Parallel HotStuff")
+parser.add_argument("--forceRecover", type=float, default=0, help="Maximum number of blocks in each view for Parallel HotStuff")
+parser.add_argument("--crash", type=float, default=0, help="Amount of crashes")
 
 args = parser.parse_args()
 
@@ -643,6 +867,23 @@ if args.netvar >= 0:
     networkVar = args.netvar
     print("SUCCESSFULLY PARSED ARGUMENT - the variation of the network latency (in ms) will be changed using netem to:", networkVar)
 
+if args.numTrans >= 0:
+    numTrans = args.numTrans
+    print("SUCCESSFULLY PARSED ARGUMENT - the number of transactions per block will be:", numTrans)
+
+if args.dir:
+    savedir = args.dir
+    pointsFile   = savedir + "/points-" + timestampStr
+    print("SUCCESSFULLY PARSED ARGUMENT - the save directory will be:", dir)
+
+if args.forceRecover:
+    forceRecover = args.forceRecover
+    print("SUCCESSFULLY PARSED ARGUMENT - the forceRecover flag will be:", forceRecover)
+
+if args.crash:
+    crash = args.crash
+    print("SUCCESSFULLY PARSED ARGUMENT - the crash flag will be:", crash)
+
 if args.docker:
     runDocker = True
     print("SUCCESSFULLY PARSED ARGUMENT - running nodes in Docker containers")
@@ -658,6 +899,16 @@ if args.p2:
 if args.p3:
     runPara = True
     print("SUCCESSFULLY PARSED ARGUMENT - testing parallel HS protocol")
+
+if args.faults:
+    l = list(map(lambda x: int(x), args.faults.split(",")))
+    faults = l
+    print("SUCCESSFULLY PARSED ARGUMENT - we will be testing for f in", l)
+
+if args.maxBlocksInView:
+    l = list(map(lambda x: int(x), args.maxBlocksInView.split(",")))
+    maxBlocksInView = l
+    print("SUCCESSFULLY PARSED ARGUMENT - we will be testing for f in", l)
 
 if args.pall:
     runBasic   = True
