@@ -6,21 +6,23 @@ faults       = [1] #[1,2,4,10] #[1,2,4,10,20,30,40] #[1,2,4,6,8,10,12,14,20,30] 
 repeats      = 1 #10 #50 #5 #100 #2     # number of times to repeat each experiment
 repeatsL2    = 1
 #
-numViews     = 30     # number of views in each run
+numViews     = 5    # number of views in each run
 cutOffBound  = 200     # stop experiment after some time
-maxBlocksInView = [2]
+maxBlocksInView = [16]
 forceRecover = 0  # to force the recovery of the nodes
+#expmode = 'TVL'
+expmode = ''
 
 #
 numClients   = 1     # number of clients
 numNonChCls  = 1     # number of clients for the non-chained versions
 numChCls     = 1     # number of clients for the chained versions
 numClTrans   = 1     # number of transactions sent by each clients
-sleepTime    = 0     # time clients sleep between 2 sends (in microseconds)
-timeout      = 5     # timeout before changing changing leader (in seconds)
+sleepTime    = 1     # time clients sleep between 2 sends (in microseconds)
+timeout      = 30     # timeout before changing changing leader (in seconds)
 #
-numTrans      = 100    # number of transactions
-payloadSize   = 0 #256 #0 #256 #128      # total size of a transaction
+numTrans      = 400    # number of transactions
+payloadSize   = 128 #256 #0 #256 #128      # total size of a transaction
 useMultiCores = True
 numMakeCores  = multiprocessing.cpu_count()  # number of cores to use to make
 #
@@ -42,10 +44,12 @@ plotPara     = True
 displayPlot  = True # to display a plot once it is generated
 showYlabel   = True
 displayApp   = "open"
-logScale     = True
+logScale     = False
 recompile = True # to recompile the code
 deadNodes    = False # For some experiments we start with f nodes dead
 crash       = 0 # For some experiments we crash the nodes
+byzantine   = -1 
+
 
 # if deadNodes then we go with less views and give ourselves more time
 if deadNodes:
@@ -73,22 +77,32 @@ timestampStr = dateTimeObj.strftime("%d-%b-%Y-%H:%M:%S.%f")
 pointsFile   = savedir + "/points-" + timestampStr
 abortedFile  = statsdir + "/aborted-" + timestampStr
 plotFile     = statsdir + "/plot-" + timestampStr + ".png"
+clientsFile  = statsdir + "/clients-" + timestampStr
+debugFile    = statsdir + "/debug-" + timestampStr
+tvlFile      = statsdir + "/tvl-" + timestampStr + ".png"
+clusterFile  = "nodes"
+clusterNet   = "paraHSNet"
+
+sshOpt1  = "StrictHostKeyChecking=no"
 
 # Names
 basicHS   = "Basic HotStuff"
 chainedHS = "Chained HotStuff"
+paraHS    = "Parallel HotStuff"
 
 # Markers
 basicMRK   = "P"
 chainedMRK = "d"
+paraMRK    = "s"
 
 # Line styles
 basicLS   = ":"
 chainedLS = ":"
+paraLS    = ":"
 
 # Markers
-basicCOL   = "black"
-chainedCOL = "darkorange"
+basicCOL   = "#3fa4d8"
+chainedCOL = "#b2c324"
 
 ## Docker parameters
 runDocker  = False      # to run the code within docker contrainers

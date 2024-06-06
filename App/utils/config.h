@@ -4,18 +4,18 @@
 #include "params.h"
 
 // debug switches
-#define DEBUG   true
-#define DEBUG0  true
-#define DEBUG1  true
-#define DEBUG2  true
+#define DEBUG   false
+#define DEBUG0  false
+#define DEBUG1  false
+#define DEBUG2  false
 // to print timing info
 #define DEBUGT  false
 // adds ocalls to profile crypto in enclaves
-#define DEBUGOT true
+#define DEBUGOT false
 // to print 'EXECUTE' messages
-#define DEBUGE  true
+#define DEBUGE  false
 // to print client messages
-#define DEBUGC  true
+#define DEBUGC  false
 
 #define NO_SOCKET          -1
 #define CONF_FILE_SIZE     250

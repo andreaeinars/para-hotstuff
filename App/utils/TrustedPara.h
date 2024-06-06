@@ -51,7 +51,7 @@ class TrustedPara {
   Just TEEprepare(Stats &stats, Nodes nodes, PBlock block, Just just);
   Just TEEstore(Stats &stats, Nodes nodes, Just just, std::function<PBlock(unsigned int)> getBlockFunc);
   bool TEEverify(Stats &stats, Nodes nodes, Just just);
-  Just TEEverifyLeaderQC(Stats &stats, Nodes nodes, Just just, const std::vector<Hash> &blockHashes);
+  Just TEEverifyLeaderQC(Stats &stats, Nodes nodes, Just just, const std::vector<Hash> &blockHashes, bool checkHashes);
 };
 
 

@@ -16,111 +16,255 @@
 import subprocess
 
 # Define the base command and common parameters
-base_command = "python3 experiments.py --docker --p3"
+base_command = "python3 experiments.py --docker"
 
 # Define the experiments with their specific parameters
 experiments_control = [
-     {
-        "description": "FIRST",
+    #  {
+    #     "description": "100 trans",
+    #     "protocol": "pall",
+    #     "params": {
+    #         "faults": "1,2,4,8,16",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "1,4,8,16,32",
+    #         "numTrans": "400",
+    #         "netlat": "100",
+    #         "netvar": "100",
+    #         "dir": "usable_stats/exp-new/control-exp-faults",
+    #     }
+    # },
+    # {
+    #     "description": "vs blocks",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "1,4,8,16,32,64",
+    #         "numTrans": "100",
+    #         # "netlat": "100",
+    #         # "netvar": "100",
+    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
+    #     }
+    # },
+    # {
+    #     "description": "vs blocks 400 trans",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1",
+    #         "repeats": "1",
+    #         "views": "30",
+    #         "maxBlocksInView": "1,4,8,16,32,64",
+    #         "numTrans": "100",
+    #         "payload": "128",
+    #         # "netlat": "100",
+    #         # "netvar": "100",
+    #         "numcltrans": "1",
+    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
+    #     }
+    # },
+    # {
+    #     "description": "vs blocks 128 payload",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "1,4,8,16,32,64",
+    #         "numTrans": "100",
+    #         # "netlat": "100",
+    #         # "netvar": "100",
+    #         "payload": "256",
+    #         "numcltrans": "1",
+    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
+    #     }
+    # },
+    {
+        "description": "vs blocks 512 payload",
+        "protocol": "p3",
         "params": {
-            "faults": "1,2,4,8",
+            "faults": "1",
             "repeats": "3",
             "views": "30",
-            "maxBlocksInView": "16,32",
-            "numTrans": "400",
+            "maxBlocksInView": "64",
+            "numTrans": "100",
             "netlat": "100",
             "netvar": "100",
-            "dir": "usable_stats/control-exp",
+            "payload": "512",
+            "numcltrans": "1",
+            "timeout": "10",
+            "dir": "usable_stats/exp-new/control-exp-blocks",
         }
     },
+    # {
+    #     "description": "vs blocks 512 payload",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "1,4,8,16,32,64",
+    #         "numTrans": "400",
+    #         # "netlat": "100",
+    #         # "netvar": "100",
+    #         "payload": "0",
+    #         "numcltrans": "1",
+    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
+    #     }
+    # },
     {
-        "description": "FIRST",
+        "description": "vs blocks 512 payload",
+        "protocol": "p3",
         "params": {
-            "faults": "1,2,4,8",
+            "faults": "1",
             "repeats": "3",
             "views": "30",
-            "maxBlocksInView": "16,32",
+            "maxBlocksInView": "64",
             "numTrans": "400",
             "netlat": "100",
             "netvar": "100",
-            "dir": "usable_stats/control-exp",
+            "payload": "128",
+            "numcltrans": "1",
+            "timeout": "10",
+            "dir": "usable_stats/exp-new/control-exp-blocks",
         }
     },
 ]
 
-experiments_crash = [
+
+experiments_delay = [
      {
         "description": "FIRST",
+        "protocol": "pall",
+        "params": {
+            "faults": "1,2,4,8,16",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "1,4,8,16,32",
+            "numTrans": "400",
+            "netlat": "100",
+            "netvar": "400",
+            "dir": "usable_stats/exp-new/delay-exp",
+        }
+    },
+]
+
+experiments_byz = [
+    {
+        "description": "xBlocks",
+        "protocol": "p3",
+        "params": {
+            "faults": "1",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "4,8,16,32,64,128,256",
+            "numTrans": "400",
+            "netlat": "100",
+            "netvar": "100",
+            "dir": "usable_stats/exp-new/byz-exp-blocks",
+            "byzantine":"1",
+        }
+    },
+    # {
+    #     "description": "xFaults",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1,2,4,8",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "32",
+    #         "numTrans": "400",
+    #         "netlat": "100",
+    #         "netvar": "100",
+    #         "byzantine":"1",
+    #         "dir": "usable_stats/exp-new/byz-exp-blocks",
+    #     }
+    # },
+]
+
+experiments_crash = [
+    #  {
+    #     "description": "xBlocks",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "4,8,16,32,64",
+    #         "numTrans": "400",
+    #         "netlat": "100",
+    #         "netvar": "100",
+    #         "dir": "usable_stats/exp-new/crash-exp-blocks",
+    #         "crash":"0.5",
+    #     }
+    # },
+    {
+        "description": "xFaults",
+        "protocol": "p3",
+        "params": {
+            "faults": "1,2,4,8",
+            "repeats": "3",
+            "timeout": "10",
+            "views": "30",
+            "maxBlocksInView": "16",
+            "numTrans": "400",
+            "netlat": "100",
+            "netvar": "100",
+            "dir": "usable_stats/exp-new/crash-exp-faults-3",
+            "crash":"0",
+        }
+    },
+    {
+        "description": "xFaults",
+        "protocol": "p3",
         "params": {
             "faults": "1,2,4,8",
             "repeats": "3",
             "views": "30",
-            "maxBlocksInView": "8,16",
+            "timeout": "10",
+            "maxBlocksInView": "16",
             "numTrans": "400",
-            # "netlat": "100",
-            # "netvar": "100",
-            "dir": "usable_stats/crash-exp",
+            "netlat": "100",
+            "netvar": "100",
+            "dir": "usable_stats/exp-new/crash-exp-faults-3",
             "crash":"0.5",
         }
     },
     {
         "description": "SECOND",
+        "protocol": "p3",
         "params": {
             "faults": "1,2,4,8",
             "repeats": "3",
             "views": "30",
-            "maxBlocksInView": "8,16",
+            "timeout": "10",
+            "maxBlocksInView": "16",
             "numTrans": "400",
-            # "netlat": "100",
-            # "netvar": "100",
-            "dir": "usable_stats/crash-exp",
+            "netlat": "100",
+            "netvar": "100",
             "crash":"1",
+            "dir": "usable_stats/exp-new/crash-exp-faults-3",
         }
-    },
-    {
-        "description": "SECOND",
-        "params": {
-            "faults": "1,2,4,8",
-            "repeats": "3",
-            "views": "30",
-            "maxBlocksInView": "8,16",
-            "numTrans": "400",
-            # "netlat": "100",
-            # "netvar": "100",
-            "dir": "usable_stats/crash-exp",
-        }
-    },
+    }, # TODO: Finish crash experiments
 ]
 
 experiments_recover = [
-    #   {
-    #     "description": "FIRST",
-    #     "params": {
-    #         "faults": "4,8",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "16",
-    #         "numTrans": "400",
-    #         # "netlat": "100",
-    #         # "netvar": "100",
-    #         "forceRecover": "1",
-    #         "dir": "usable_stats/recover-exp",
-    #     }
-    # },
-    #  {
-    #     "description": "FIRST",
-    #     "params": {
-    #         "faults": "1,2,4,8",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "16",
-    #         "numTrans": "400",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "forceRecover": "0",
-    #         "dir": "usable_stats/recover-exp-lat-2",
-    #     }
-    # },
+      {
+        "description": "FIRST",
+        "protocol": "p3",
+        "params": {
+            "faults": "4,8",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "16",
+            "numTrans": "400",
+            "netlat": "100",
+            "netvar": "100",
+            "forceRecover": "0",
+            "dir": "usable_stats/exp-new/recover-exp",
+        }
+    },
     # {
     #     "description": "SECOND",
     #     "params": {
@@ -137,6 +281,7 @@ experiments_recover = [
     # },
     {
         "description": "THIRD",
+        "protocol": "p3",
         "params": {
             "faults": "1,2,4,8",
             "repeats": "3",
@@ -146,7 +291,7 @@ experiments_recover = [
             "netlat": "100",
             "netvar": "100",
             "forceRecover": "0.5",
-            "dir": "usable_stats/recover-exp-lat-2",
+            "dir": "usable_stats/exp-new/recover-exp",
         }
     },
     # {
@@ -165,6 +310,7 @@ experiments_recover = [
     # },
     {
         "description": "FIFTH",
+        "protocol": "p3",
         "params": {
             "faults": "1,2,4,8",
             "repeats": "3",
@@ -174,149 +320,103 @@ experiments_recover = [
             "netlat": "100",
             "netvar": "100",
             "forceRecover": "1",
-            "dir": "usable_stats/recover-exp-lat-2",
+            "dir": "usable_stats/exp-new/recover-exp",
         }
     },
 ]
 
-# Define the experiments with their specific parameters
-experiments_vsblocks_lat = [
-     {
-        "description": "FIRST",
-        "params": {
-            "faults": "1",
-            "repeats": "3",
-            "views": "20",
-            "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-            "netlat": "100",
-            "netvar": "250",
-            "numTrans": "100",
-            "dir": "usable_stats/vsblocks_lat_2",
-        }
-    },
+experiments_client = [
     {
-        "description": "SECOND",
+        "description": "throughputxlat",
+        "protocol": "pall",
         "params": {
             "faults": "1",
             "repeats": "3",
-            "views": "20",
-            "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-            "numTrans": "100",
-            "netlat": "100",
-            "netvar": "250",
+            "views": "60",
             "numTrans": "400",
-            "dir": "usable_stats/vsblocks_lat_2",
+            "maxBlocksInView": "16,32",
+            "netlat": "100",
+            "netvar": "100",
+            "dir": "usable_stats/exp-new/client-exp",
+            'numcltrans': '5000',
+            'sleeptime': '1000',
         }
     },
     {
-        "description": "THIRD",
+        "description": "throughputxlat",
+        "protocol": "pall",
         "params": {
             "faults": "1",
             "repeats": "3",
-            "views": "20",
-            "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-            "numTrans": "100",
+            "views": "60",
+            "numTrans": "400",
+            "maxBlocksInView": "16,32",
             "netlat": "100",
-            "netvar": "250",
-            "payload": "128",
-            "dir": "usable_stats/vsblocks_lat_2",
+            "netvar": "100",
+            "dir": "usable_stats/exp-new/client-exp",
+            'numcltrans': '5000',
+            'sleeptime': '700',
         }
     },
     {
-        "description": "FOURTH",
+        "description": "throughputxlat",
+        "protocol": "pall",
         "params": {
             "faults": "1",
             "repeats": "3",
-            "views": "20",
-            "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-            "numTrans": "100",
+            "views": "60",
+            "numTrans": "400",
+            "maxBlocksInView": "16,32",
             "netlat": "100",
-            "netvar": "250",
-            "payload": "256",
-            "dir": "usable_stats/vsblocks_lat_2",
+            "netvar": "100",
+            "dir": "usable_stats/exp-new/client-exp",
+            'numcltrans': '5000',
+            'sleeptime': '400',
+        }
+    },
+    {
+        "description": "throughputxlat",
+        "protocol": "pall",
+        "params": {
+            "faults": "1",
+            "repeats": "3",
+            "views": "60",
+            "numTrans": "400",
+            "maxBlocksInView": "16,32",
+            "netlat": "100",
+            "netvar": "100",
+            "dir": "usable_stats/exp-new/client-exp",
+            'numcltrans': '5000',
+            'sleeptime': '100',
         }
     },
 ]
-# Define the experiments with their specific parameters
-experiments_vsblocks = [
-    #  {
-    #     "description": "FIRST",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "6",
-    #         "views": "20",
-    #         "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-    #         "numTrans": "100",
-    #         "dir": "usable_stats/vsblocks",
-    #     }
-    # },
-    # {
-    #     "description": "SECOND",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "6",
-    #         "views": "20",
-    #         "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-    #         "numTrans": "100",
-    #         "netlat": "10",
-    #         "netvar": "150",
-    #         "dir": "usable_stats/vsblocks",
-    #     }
-    # },
-    # {
-    #     "description": "THIRD",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "6",
-    #         "views": "20",
-    #         "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-    #         "numTrans": "400",
-    #         "dir": "usable_stats/vsblocks",
-    #     }
-    # },
-    {
-        "description": "FOURTH",
-        "params": {
-            "faults": "1",
-            "repeats": "6",
-            "views": "20",
-            "maxBlocksInView": "1,2,5,10,15,20,25,30,40",
-            "numTrans": "100",
-            "payload": "128",
-            "dir": "usable_stats/vsblocks",
-        }
-    }
-]
-
-
-# Define the experiments with their specific parameters
-# experiments_recover = [
-#      {
-#         "description": "FIRST",
-#         "params": {
-#             "faults": "1,2,4,8,16",
-#             "repeats": "3",
-#             "views": "30",
-#             "netlat": "100",
-#             "netvar": "100",
-#             "maxBlocksInView": "16",
-#             "numTrans": "400",
-#             "dir": "usable_stats/control-exp",
-#         }
-#     },
-# ]
-
 
 # Function to run an experiment
-def run_experiment(description, params):
-    command = base_command
+def run_experiment(description, protocol, params):
+    command = base_command + f" --{protocol}"
     for param, value in params.items():
         command += f" --{param} {value}"
     print(f"Running {description} with command: {command}")
     subprocess.run(command, shell=True)
 
 # Run all experiments sequentially
+# for experiment in experiments_control:
+#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+
+# for experiment in experiments_delay:
+#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+
+# for experiment in experiments_byz:
+#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+
 for experiment in experiments_crash:
-    run_experiment(experiment["description"], experiment["params"])
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+
+# for experiment in experiments_recover:
+#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+
+# for experiment in experiments_client:
+#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
 print("All experiments completed.")

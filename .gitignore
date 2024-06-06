@@ -9,3 +9,8 @@ bla.py
 App/params.h
 output.txt
 usable_stats/
+test_*
+nodes
+id_rsa.parahs
+id_rsa.parahs.pub
+tst.py

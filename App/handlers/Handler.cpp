@@ -53,7 +53,7 @@ const uint8_t MsgReply::opcode;
 const uint8_t MsgStart::opcode;
 
 
-Handler::Handler(KeysFun k, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView, float forceRecover) :
+Handler::Handler(KeysFun k, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView, float forceRecover, int byzantine) :
 pnet(pec,pconf), cnet(cec,cconf), distribution(0.0f, 1.0f) {
   this->myid         = id;
   this->timeout      = timeout;
@@ -66,6 +66,7 @@ pnet(pec,pconf), cnet(cec,cconf), distribution(0.0f, 1.0f) {
   this->kf           = k;
   this->maxBlocksInView = maxBlocksInView;
   this->forceRecover = forceRecover;
+  this->byzantine = byzantine;
 
   // isPaused.store(false);
 
@@ -121,6 +122,7 @@ pnet(pec,pconf), cnet(cec,cconf), distribution(0.0f, 1.0f) {
                                                 this->recordStats();
                                                 this->pec.stop();
                                                 this->cec.stop();
+                                                this->timer.del();
                                                 return;
                                               }
                                               if (!isPaused.load()) { 
@@ -268,7 +270,7 @@ void Handler::recordStats() {
   unsigned int quant2 = 10;
 
    // Throughput
-  Times totv = stats.getTotalViewTime(quant2);
+  Times totv = stats.getTotalViewTime(quant1);
   #if defined(BASIC_BASELINE) || defined(CHAINED_BASELINE)
   double kopsv = ((totv.n)*(MAX_NUM_TRANSACTIONS)*1.0) / 1000;
   double secsView = /*time*/ totv.tot / (1000*1000);
@@ -329,7 +331,8 @@ void Handler::recordStats() {
            << " " << std::to_string(cryptoS)
            << " " << std::to_string(stats.getCryptoVerifNum())
            << " " << std::to_string(cryptoV)
-           << " " << std::to_string(recoverTimes);
+           << " " << std::to_string(recoverTimes)
+           << " " << std::to_string(totv.n);
   fileVals.close();
 
   // Done
@@ -390,6 +393,7 @@ void Handler::getStarted() {
     if (DEBUG1) std::cout << KBLU << nfo() << "initial just:" << j.prettyPrint() << KNRM << std::endl;
     MsgNewViewPara msg(j.getRDataPara(),j.getSigns());
     if (DEBUG1) std::cout << KBLU << nfo() << "starting with:" << msg.prettyPrint() << KNRM << std::endl;
+    setTimer();
     if (amCurrentLeader()) { 
       if (DEBUG) std::cout << KBLU << nfo() << "handling MY OWN new-view" << KNRM << std::endl;
       handleNewViewPara(msg); 
@@ -400,7 +404,9 @@ void Handler::getStarted() {
 }
 
 void Handler::handle_transaction(MsgTransaction msg, const ClientNet::conn_t &conn) {
-  if (!isPaused.load()) { handleTransaction(msg);}
+  //if (!isPaused.load() &&  amLeaderOf(this->view+1)) { 
+  if (!isPaused.load()) { 
+    handleTransaction(msg);}
 }
 
 void Handler::handle_start(MsgStart msg, const ClientNet::conn_t &conn) {
@@ -1494,50 +1500,6 @@ void Handler::initiateVerifyPara(Just just){
   preparePara(just);
 }
 
-// void Handler::preparePara(Just just) { // For leader to do begin a view (prepare phase)
-//   auto start = std::chrono::steady_clock::now();
-//   // We first create a block that extends the highest prepared block
-//   localSeq = 1; 
-//   PBlock prevBlock;
-//   Hash prevHash = just.getRDataPara().getJusth();
-  
-//   // Vector to store blocks and their respective Just objects
-//   std::vector<std::pair<PBlock, Just>> blockJustPairs;
-
-//   for (int i = 1; i <= maxBlocksInView; ++i) {
-//     PBlock block = createNewBlockPara(prevHash);
-//     localSeq++;
-//     Just justPrep = callTEEpreparePara(block, just);
-
-//     if (justPrep.isSet()) {
-//       if (DEBUG1) std::cout << KMAG << nfo() << "storing block for view=" << this->view << ":" << block.prettyPrint() << KNRM << std::endl;
-//       this->pblocks[this->view][block.getSeqNumber() - 1] = block;
-//       prevBlock = block;
-//       prevHash = block.hash(); // Update previous hash for the next block
-//       blockJustPairs.push_back(std::make_pair(block, justPrep));
-//     } else {
-//       if (DEBUG2) std::cout << KBLU << nfo() << "bad justification" << justPrep.prettyPrint() << KNRM << std::endl;
-//     }
-//   }
-
-//   // Send blocks in reverse order
-//   for (auto it = blockJustPairs.rbegin(); it != blockJustPairs.rend(); ++it) {
-//     PBlock block = it->first;
-//     Just justPrep = it->second;
-//     Signs signs = justPrep.getSigns();
-//     MsgPreparePara msgPrep(justPrep.getRDataPara(), signs);
-//     ParaProposal prop(just, block); // Create a proposal out of that block to send out to the other replicas
-//     MsgLdrPreparePara msgProp(prop, signs);  // We send this proposal in a prepare message
-//     Peers recipients = remove_from_peers(this->myid);
-//     sendMsgLdrPreparePara(msgProp, recipients); 
-
-//     // We store our own proposal in the log
-//     this->log.storePrepPara(msgPrep);
-//   }
-
-//   stats.addTotalPrepTime(recordTime(start));
-// }
-
 void Handler::preparePara(Just just) { // For leader to do begin a view (prepare phase)
   auto start = std::chrono::steady_clock::now();
   // We first create a block that extends the highest prepared block
@@ -1545,9 +1507,18 @@ void Handler::preparePara(Just just) { // For leader to do begin a view (prepare
   PBlock prevBlock;
   Hash prevHash = just.getRDataPara().getJusth();
 
-  for (int i = 1; i <= maxBlocksInView; ++i) {
+  int i;
+  if (this->byzantine == this->myid) {
+    if (DEBUG) std::cout << KBLU << nfo() << "Byzantine leader so i will start proposing from 1" << KNRM << std::endl;
+    this->localSeq++;
+    i = 2;
+  } else {
+    i = 1;
+  }
+
+  for (i; i <= maxBlocksInView; ++i) {
     PBlock block = createNewBlockPara(prevHash);
-    localSeq++;
+    this->localSeq++;
     Just justPrep = callTEEpreparePara(block, just);
 
     if (justPrep.isSet()) {
@@ -1659,9 +1630,9 @@ Just Handler::callTEEsignPara() {
   return just;
 }
 
-Just Handler::callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes) {
+Just Handler::callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes, bool checkHashes) {
   auto start = std::chrono::steady_clock::now();
-  Just just = tpara.TEEverifyLeaderQC(stats,this->nodes,j, blockHashes);
+  Just just = tpara.TEEverifyLeaderQC(stats,this->nodes,j, blockHashes, checkHashes);
   double time = recordTime(start);
   stats.addTEEprepare(time);
   stats.addTEEtime(time);
@@ -1699,13 +1670,25 @@ void Handler::executeRDataPara(RDataPara rdata) {
   this->lastExecutedSeq = rdata.getSeqNumber();
   if (DEBUG) std::cout << KBLU << nfo() << "executed block for view=" << this->view << " seq=" << rdata.getSeqNumber() << "max seq=" << maxBlocksInView << KNRM << std::endl;
   if ((timeToStop()) && (rdata.getSeqNumber() == maxBlocksInView)){
+    auto endView = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::microseconds>(endView - startView).count();
+    startView = endView;
+    stats.incExecViews();
+    stats.addTotalViewTime(time);
+    // print view time in millis
+    if (DEBUG) std::cout << KBLU << nfo() << "View time: " << time/1000 << " for view: " << this->view << KNRM << std::endl;
+    // if (DEBUG) std::cout << KBLU << nfo() << "View time: " << time << " for view: " << this->view << KNRM << std::endl;
     recordStats();
+    this->pec.stop();
+    this->cec.stop();
+    this->timer.del();
   } else if (rdata.getSeqNumber() == maxBlocksInView) {
     auto endView = std::chrono::steady_clock::now();
     double time = std::chrono::duration_cast<std::chrono::microseconds>(endView - startView).count();
     startView = endView;
     stats.incExecViews();
     stats.addTotalViewTime(time);
+    if (DEBUG) std::cout << KBLU << nfo() << "View time: " << time/1000 << " for view: " << this->view << KNRM << std::endl;
     if (this->transactions.empty()) { this->viewsWithoutNewTrans++; } else { this->viewsWithoutNewTrans = 0; }
     startNewViewPara();
   } else {
@@ -1837,7 +1820,7 @@ void Handler::handleNewViewPara(MsgNewViewPara msg) {
 
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
-  if (this->view >= this->maxViews) {
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
     if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
     return;
   }
@@ -1927,7 +1910,7 @@ void Handler::handle_newview_para(MsgNewViewPara msg, const PeerNet::conn_t &con
 }
 
 void Handler::handleLdrPreparePara(MsgLdrPreparePara msg) { // This is only for backups
-  if (this->view >= this-> maxViews) {
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
     if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
     return;
     } 
@@ -1978,7 +1961,7 @@ void Handler::handleRecoverPara(MsgRecoverPara msg) {
   if (DEBUG) std::cout << KBLU << nfo() << "handling: " << msg.prettyPrint() << KNRM << std::endl;
   if (DEBUGT) std::cout << KMAG << nfo() << "MsgRecoverPara:" << time << KNRM << std::endl;
 
-  if (this->view >= this->maxViews) {
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
     if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
     return;
   }
@@ -1994,7 +1977,7 @@ void Handler::handleRecoverPara(MsgRecoverPara msg) {
   }
 
   if (recoverResponses.find(view) == recoverResponses.end()) {
-    recoverResponses[view] = 0;
+    recoverResponses[view] = 1; // Our own response
   }
 
   if (DEBUG) std::cout << KBLU << nfo() << "I am leader and going to check respones for view: " << view << " and missingSeqNumbers: " << missingSeqNumbers.size() << KNRM << std::endl;
@@ -2020,8 +2003,38 @@ void Handler::handleRecoverPara(MsgRecoverPara msg) {
   }
   recoverResponses[view]++;
   if (recoverResponses[view] >= qsize) { // If we have received enough responses
+    
+    int highestContSeqNum = 1; // Start checking from 1
+    while (std::find(missingSeqNumbers.begin(), missingSeqNumbers.end(), highestContSeqNum) == missingSeqNumbers.end()) {
+        highestContSeqNum++;
+    }
+    highestContSeqNum--; 
+
+    if (DEBUG) std::cout << KBLU << nfo() << "highestContSeqNum: " << highestContSeqNum << KNRM << std::endl;
+
+    if (highestContSeqNum > 0){
       initiateVerifyPara(Just(msg.rdata, msg.signs));
-      std::cout << KRED << nfo() << "Failed to recover all blocks for view, will send from highest continous" << view << KNRM << std::endl;
+    } else {
+      // Use empty list and QC from the prevoius view, so the currently verified just
+      std::vector<Hash> hashes;
+
+      if (this->verifiedJust.getRDataPara().getPropv() == this->view-1){
+        if (DEBUG) std::cout << KBLU << nfo() << "NO block committed in prev view, I have verified for last view so I will use that" << KNRM << std::endl;
+        RDataPara verifiedRData = this->verifiedJust.getRDataPara();
+        // Updateing the proposal view, Do i need to send any hash?
+        //RDataPara newRData = RDataPara(Hash(), this->view, verifiedRData.getJusth(), verifiedRData.getJustv(), verifiedRData.getPhase(), verifiedRData.getSeqNumber());
+        RDataPara newRData(Hash(), this->view, verifiedRData.getJusth(), verifiedRData.getJustv(), verifiedRData.getPhase(), verifiedRData.getSeqNumber());
+        Just newJust(newRData, this->verifiedJust.getSigns());
+        MsgVerifyPara msgVerify(newRData, this->verifiedJust.getSigns(), hashes);
+        Peers recipients = remove_from_peers(this->myid);
+        sendMsgVerifyPara(msgVerify, recipients);
+        preparePara(newJust);
+      } else {
+         if (DEBUG) std::cout << KBLU << nfo() << "NO block committed in prev view, I dont have verified from last view, what to do?????" << KNRM << std::endl;
+      }
+    }
+
+    if (DEBUG) std::cout << KRED << nfo() << "Failed to recover all blocks for view, will send from highest continous: " << view << KNRM << std::endl;
   }
 }
 
@@ -2032,7 +2045,7 @@ void Handler::handle_recover_para(MsgRecoverPara msg, const PeerNet::conn_t &con
 
 void Handler::handleLdrRecoverPara(MsgLdrRecoverPara msg) { // This is only for backups
   if (DEBUG) std::cout << KBLU << nfo() << "handling leader recover: " << msg.prettyPrint() << KNRM << std::endl;
-  if (this->view >= this->maxViews) {
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
     if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
     return;
   }
@@ -2065,7 +2078,7 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
 
-  if (this->view >= this->maxViews) {
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
     if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
     return;
   }
@@ -2082,20 +2095,39 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
     }
     if (rdata.getPropv() == this->view) {
       bool hashesMatch = true;
-      auto& blocks = pblocks[msg.rdata.getJustv()];
-      if (blocks.size() >= msg.blockHashes.size()) {
-        for (size_t i = 0; i < msg.blockHashes.size(); ++i) {
-          if (!blocks[i].isBlock() || blocks[i].hash() != msg.blockHashes[i]) {
-            hashesMatch = false;
-            break;
+      View verifView = msg.rdata.getJustv();
+      if (verifView > this->verifiedJust.getRDataPara().getPropv()){
+        // A new verify message is being used, so we need to check the hashes
+        auto& blocks = pblocks[verifView];
+        if (blocks.size() >= msg.blockHashes.size()) {
+          for (size_t i = 0; i < msg.blockHashes.size(); ++i) {
+            if (!blocks[i].isBlock() || blocks[i].hash() != msg.blockHashes[i]) {
+              hashesMatch = false;
+              break;
+            }
           }
+        } else {
+          hashesMatch = false;
         }
-      } else {
-        hashesMatch = false;
-      }
+        if (hashesMatch) {
+          if (DEBUG) std::cout << KBLU << nfo() << "NOT SAME VERIFY, so we need to check if locked in hashes" << KNRM << std::endl;
+          Just js = callTEEVerifyPara(Just(rdata,signs), msg.blockHashes, true);
+          if (js.isSet()){ 
+            this->verifiedJust = js;
+            if (DEBUG) std::cout << KBLU << nfo() << "verified leader justification" << KNRM << std::endl;
+            // Now if i already had some proposals for this view I need to handle those
+            handleEarlierMessagesPara();
+          } else {
+            if (DEBUG) std::cout << KBLU << nfo() << "failed to verify leader justification" << KNRM << std::endl;
+          }
+        } else {
+          if (DEBUG) std::cout << KBLU << nfo() << "Verify doesn't match" << KNRM << std::endl;
+        }
 
-      if (hashesMatch) {
-        Just js = callTEEVerifyPara(Just(rdata,signs), msg.blockHashes);
+      } else {
+
+        if (DEBUG) std::cout << KBLU << nfo() << "SAME VERIFY, so we dont need to check if locked in hashes" << KNRM << std::endl;
+        Just js = callTEEVerifyPara(Just(rdata,signs), msg.blockHashes, false);
         if (js.isSet()){ 
           this->verifiedJust = js;
           if (DEBUG) std::cout << KBLU << nfo() << "verified leader justification" << KNRM << std::endl;
@@ -2104,9 +2136,9 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
         } else {
           if (DEBUG) std::cout << KBLU << nfo() << "failed to verify leader justification" << KNRM << std::endl;
         }
-      } else {
-        if (DEBUG) std::cout << KBLU << nfo() << "Verify doesn't match" << KNRM << std::endl;
+        // The same verify message is being used, so we dont need to check the hashes
       }
+
     } else {
       if (DEBUG1) std::cout << KMAG << nfo() << "Storing: " << msg.prettyPrint() << KNRM << std::endl;
       // we need to change views, we got left behind
@@ -2123,11 +2155,14 @@ void Handler::handleVerifyPara(MsgVerifyPara msg) { // This is only for backups
 void Handler::changeView(View newView) {
   // callTEEsignPara();
 
+  // if (DEBUG) std::cout << KBLU << nfo() << "Changing view from " << this->view << " to " << newView << KNRM << std::endl;
+
   // Make sure the trusted also increments views
   tpara.changeView(newView);
   this->view =newView;
   this->pblocks[newView].resize(this->maxBlocksInView);
-  lastExecutedSeq = 0;
+  this->lastExecutedSeq = 0;
+  // if (DEBUG) std::cout << KBLU << nfo() << "Resetting timer for view: " << newView << KNRM << std::endl;
   setTimer();
 }
 
@@ -2139,7 +2174,7 @@ void Handler::handle_verify_para(MsgVerifyPara msg, const PeerNet::conn_t &conn)
 void Handler::handlePreparePara(MsgPreparePara msg) { // This is for both for the leader and backups
     auto start = std::chrono::steady_clock::now();
     if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
-    if (this->view >= this->maxViews) {
+    if (this->maxViews > 0 && this->view >= this->maxViews) {
       if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
       return;
     }
@@ -2176,7 +2211,7 @@ void Handler::handle_prepare_para(MsgPreparePara msg, const PeerNet::conn_t &con
 void Handler::handlePrecommitPara(MsgPreCommitPara msg) {
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
-  if (this->view >= this->maxViews) {
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
     if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
     return;
   }
@@ -2232,7 +2267,7 @@ unsigned int Handler::findHighestSeq(unsigned int seqNumber){
 void Handler::handleCommitPara(MsgCommitPara msg) {
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
-  if (this->view >= this->maxViews) {
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
     if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
     return;
   }

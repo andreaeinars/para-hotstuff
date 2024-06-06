@@ -37,6 +37,7 @@ void TrustedPara::changeView(View v) {
   this->view = v;
   this->phase = PH1_NEWVIEW;
   blockPhases.clear();
+  precommitData.clear();
   //prefixLockedSeqNumber = 0;
 }
 
@@ -72,6 +73,7 @@ void TrustedPara::increment_block_phase(Hash blockHash) {
 void TrustedPara::increment_view() {
   this->view++;
   blockPhases.clear();
+  precommitData.clear();
   prefixLockedSeqNumber = 0;
 }
 
@@ -117,9 +119,15 @@ bool TrustedPara::TEEverify(Stats &stats, Nodes nodes, Just just) {
   return b;
 }
 
-Just TrustedPara::TEEverifyLeaderQC(Stats &stats, Nodes nodes, Just just, const std::vector<Hash> &blockHashes) {
+Just TrustedPara::TEEverifyLeaderQC(Stats &stats, Nodes nodes, Just just, const std::vector<Hash> &blockHashes, bool checkHashes) {
   RDataPara  rd = just.getRDataPara();
-  bool prefixLockedInHashes = (rd.getJustv() == 0) || (std::find(blockHashes.begin(), blockHashes.end(), prefixLockedHash) != blockHashes.end());
+  bool prefixLockedInHashes;
+  if (checkHashes) {
+    prefixLockedInHashes = (rd.getJustv() == 0) || (std::find(blockHashes.begin(), blockHashes.end(), prefixLockedHash) != blockHashes.end());
+  } else {
+    prefixLockedInHashes = true;
+  }
+   //prefixLockedInHashes = (rd.getJustv() == 0) || (std::find(blockHashes.begin(), blockHashes.end(), prefixLockedHash) != blockHashes.end());
   bool teeverif_result = TEEverify(stats, nodes, just);
   bool eq_views_result = this->view == rd.getPropv();
   bool eq_phases_result = rd.getPhase() == PH1_NEWVIEW;

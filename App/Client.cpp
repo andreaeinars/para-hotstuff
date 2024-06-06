@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 #include "utils/Message.h"
 
@@ -55,7 +56,12 @@ unsigned int constFactor = 3;         // default value: by default, there are 3f
 CID cid = 0;                          // id of this client
 unsigned int numInstances = 1;        // by default clients wait for only 1 instance
 std::map<TID,TransInfo> transactions; // current transactions
-std::map<TID,double> execTrans;       // set of executed transaction ids
+//std::map<TID,double> execTrans;       // set of executed transaction ids
+std::map<TID, std::pair<std::chrono::steady_clock::time_point, std::chrono::steady_clock::time_point>> execTrans;
+
+std::chrono::steady_clock::time_point when_last_reply = std::chrono::steady_clock::now();
+
+unsigned int maxBlocks = 0;           // maximum number of blocks in a view
 unsigned int sleepTime = 1;           // time the client sleeps between two sends (in microseconds)
 
 Clock beginning;
@@ -71,6 +77,9 @@ bool skipFirst = true;
 #else
 bool skipFirst = false;
 #endif
+
+std::atomic<bool> running(true);
+
 
 std::string cnfo() {
   return ("[C" + std::to_string(cid) + "]");
@@ -98,20 +107,46 @@ unsigned int updTransaction(TID tid) {
 bool compare_double (const double& first, const double& second) { return (first < second); }
 
 void printStats() {
-  auto end = std::chrono::steady_clock::now();
-  double time = std::chrono::duration_cast<std::chrono::microseconds>(end - beginning).count();
-  double secs = time / (1000*1000);
-  double kops = (numInstances * 1.0) / 1000;
-  double throughput = kops/secs;
-  std::cout << KMAG << cnfo() << "numInstances=" << numInstances << ";Kops=" << kops << ";secs=" << secs << KNRM << std::endl;
+  // auto end = std::chrono::steady_clock::now();
+  // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - beginning).count();
+  // double secs = time / (1000*1000);
+  // double kops = (numInstances * 1.0) / 1000;
+  // double throughput = kops/secs;
+  // std::cout << KMAG << cnfo() << "numInstances=" << numInstances << ";Kops=" << kops << ";secs=" << secs << KNRM << std::endl;
 
-  // we gather all latencies in a list
-  std::list<double> allLatencies;
-  for (std::map<TID,double>::iterator it = execTrans.begin(); it != execTrans.end(); ++it) {
-    if (DEBUGC) std::cout << KMAG << cnfo() << "tid=" << it->first << ";time=" << it->second << KNRM << std::endl;
-    double ms = (it->second)/1000; /* latency in milliseconds */
-    allLatencies.push_back(ms);
+  std::chrono::steady_clock::time_point latestCompletionTime = beginning; // Initialize to the start time
+  for (const auto& entry : execTrans) {
+    if (entry.second.second > latestCompletionTime) {
+      latestCompletionTime = entry.second.second;
+    }
   }
+
+  double totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(latestCompletionTime - beginning).count();
+  double secs = totalDuration / 1000000.0;
+  double kops = (execTrans.size() * 1.0) / 1000.0;
+  double throughput = kops / secs;
+
+  std::cout << KMAG << cnfo() << "numInstances=" << execTrans.size() << "; Kops=" << kops << "; secs=" << secs << KNRM << std::endl;
+
+
+  std::list<double> allLatencies;
+  for (const auto& entry : execTrans) {
+      double duration = std::chrono::duration_cast<std::chrono::microseconds>(entry.second.second - entry.second.first).count();
+      double ms = duration / 1000.0; // Convert microseconds to milliseconds
+      allLatencies.push_back(ms);
+  }
+
+  //double avgLatency = std::accumulate(allLatencies.begin(), allLatencies.end(), 0.0) / allLatencies.size();
+
+
+  
+  // we gather all latencies in a list
+  // std::list<double> allLatencies;
+  // for (std::map<TID,double>::iterator it = execTrans.begin(); it != execTrans.end(); ++it) {
+  //  //if (DEBUGC) std::cout << KMAG << cnfo() << "tid=" << it->first << ";time=" << it->second << KNRM << std::endl;
+  //   double ms = (it->second)/1000; /* latency in milliseconds */
+  //   allLatencies.push_back(ms);
+  // }
 
   double avg = 0.0;
   for (std::list<double>::iterator it = allLatencies.begin(); it != allLatencies.end(); ++it) {
@@ -120,24 +155,60 @@ void printStats() {
   double latency = avg / allLatencies.size(); /* avg of milliseconds spent on a transaction */
   if (DEBUGC) std::cout << KMAG << cnfo() << "latency=" << latency << KNRM << std::endl;
 
+  // double avg2 = 0.0;
+  // for (std::list<double>::iterator it = allLatencies2.begin(); it != allLatencies2.end(); ++it) {
+  //   avg2 += (double)*it;
+  // }
+  // double latency2 = avg2 / allLatencies2.size(); /* avg of milliseconds spent on a transaction */
+
+  //End to end latency
+  double endToEndLatency = (totalDuration / 1000) / numInstances;
+
   std::ofstream f(statsThroughputLatency);
   //f << std::to_string(throughput) << " " << std::to_string(latency);
-  f << std::to_string(throughput) << " " << std::to_string(latency) << " " << std::to_string(numInstances);
+  f << std::to_string(throughput) << " " << std::to_string(latency) << " " << std::to_string(allLatencies.size());
   f.close();
 
   if (DEBUGC) { std::cout << KMAG << cnfo() << "#before=" << execTrans.size() << ";#after=" << allLatencies.size() << KNRM << std::endl; }
 }
 
+void timeout_checker() {
+    auto last_check = std::chrono::steady_clock::now();
+    while (running) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(now - when_last_reply).count();
+        if (elapsed_time > 15) {
+            std::cout << "Timeout reached, not all responses received." << std::endl;
+            printStats();  // Assume printStats function to display or log information
+            send_thread.join();
+            ec.stop();
+            running = false;
+            break;
+        }
+    }
+}
 
+// void executed(TID tid) {
+//   std::map<TID,TransInfo>::iterator it = transactions.find(tid);
+//   if (it != transactions.end()) {
+//     TransInfo tup = it->second;
+//     auto start = std::get<1>(tup);
+//     auto end = std::chrono::steady_clock::now();
+//     double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+//     execTrans[tid]=time;
+//   }
+// }
 void executed(TID tid) {
-  std::map<TID,TransInfo>::iterator it = transactions.find(tid);
-  if (it != transactions.end()) {
-    TransInfo tup = it->second;
-    auto start = std::get<1>(tup);
-    auto end = std::chrono::steady_clock::now();
-    double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    execTrans[tid]=time;
-  }
+    auto it = transactions.find(tid);
+    if (it != transactions.end()) {
+        TransInfo tup = it->second;
+        auto start = std::get<1>(tup);
+        auto end = std::chrono::steady_clock::now();
+        execTrans[tid] = std::make_pair(start, end);
+        // double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+        // execTrans2[tid]=time;
+    }
 }
 
 void handle_reply(MsgReply &&msg, const MsgNet::conn_t &conn) {
@@ -145,13 +216,13 @@ void handle_reply(MsgReply &&msg, const MsgNet::conn_t &conn) {
   //std::cout << cnfo() << "received reply for transaction " << tid << KNRM << std::endl;
   if (execTrans.find(tid) == execTrans.end()) { // the transaction hasn't been executed yet
     unsigned int numReplies = updTransaction(tid);
-    std::cout << cnfo() << "received " << numReplies << "/" << qsize << " replies for transaction " << tid << KNRM << std::endl;
+    if (DEBUGC) { std::cout << cnfo() << "received " << numReplies << "/" << qsize << " replies for transaction " << tid << KNRM << std::endl;}
     if (numReplies == qsize) {
       if (DEBUGC) { std::cout << cnfo() << "received all " << numReplies << " replies for transaction " << tid << KNRM << std::endl; }
       executed(tid);
       if (DEBUGC) { std::cout << cnfo() << "received:" << execTrans.size() << "/" << numInstances << KNRM << std::endl; }
       if (execTrans.size() == numInstances) {
-        if (DEBUG0) { std::cout << cnfo() << "received replies for all " << numInstances << " transactions...stopping..." << KNRM << std::endl; }
+        std::cout << cnfo() << "received replies for all " << numInstances << " transactions...stopping..." << KNRM << std::endl; 
         printStats();
         // Once we have received all the replies we want, we stop by:
         // (1) waiting for the sending thread to finish
@@ -161,6 +232,18 @@ void handle_reply(MsgReply &&msg, const MsgNet::conn_t &conn) {
       }
     }
   }
+  
+  //auto time_now = std::chrono::steady_clock::now();
+  // auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(time_now - when_last_reply).count();
+  when_last_reply = std::chrono::steady_clock::now(); // Update the last handled time
+
+  // If the timeout period is reached and not all responses are received
+  // if (elapsed_time > 20) {
+  //     std::cout << "Timeout reached, not all responses received." << std::endl;
+  //     printStats();  // Assume printStats function to display or log information
+  //     send_thread.join();
+  //     ec.stop();
+  // }
 }
 
 void addNewTransaction(Transaction trans) {
@@ -209,7 +292,27 @@ void send_transactions() {
         if (transid > numInstances) { break; }
       }
     }
+    // usleep(sleepTime);
+    // if (DEBUGC) { std::cout << cnfo() << "slept for " << sleepTime << "; transid=" << transid << KNRM << std::endl; }
+    // transid++;
+    // if (transid > numInstances) { break; }
   }
+  // auto timeout_duration = std::chrono::seconds(190);  // 90 seconds timeout
+  // auto timeout_end_time = std::chrono::steady_clock::now() + timeout_duration;
+
+  // // Loop to simulate processing and checking for timeout
+  // while (std::chrono::steady_clock::now() < timeout_end_time) {
+  //   // Simulate processing work or wait for replies
+  //   std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Sleep for 100 milliseconds
+  // } 
+
+  // // If the timeout period is reached and not all responses are received
+  // if (std::chrono::steady_clock::now() >= timeout_end_time) {
+  //     std::cout << "Timeout reached, not all responses received." << std::endl;
+  //     printStats();  // Assume printStats function to display or log information
+  //     send_thread.join();
+  //     ec.stop();
+  // }
 }
 
 int main(int argc, char const *argv[]) {
@@ -233,6 +336,8 @@ int main(int argc, char const *argv[]) {
   if (argc > 6) { sscanf(argv[6], "%d", &inst); }
   std::cout << cnfo() << "instance=" << inst << KNRM << std::endl;
 
+  if (argc > 7) { sscanf(argv[6], "%d", &maxBlocks); }
+  std::cout << cnfo() << "instance=" << maxBlocks << KNRM << std::endl;
 
   numNodes = (constFactor*numFaults)+1;
   qsize = numNodes-numFaults;
@@ -311,6 +416,22 @@ int main(int argc, char const *argv[]) {
 
   send_start_to_all();
   send_thread = std::thread([]() { send_transactions(); });
+  std::thread timeout_thread(timeout_checker);
+
+  // check whether when_last is higher than 20 seconds in a loop
+
+  // while (true) {
+  //   auto time_now = std::chrono::steady_clock::now();
+  //   auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(time_now - when_last_reply).count();
+  //   if (elapsed_time > 20) {
+  //     std::cout << "Timeout reached, not all responses received." << std::endl;
+  //     printStats();  // Assume printStats function to display or log information
+  //     send_thread.join();
+  //     ec.stop();
+  //     break;
+  //   }
+  //   std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  // }
 
   auto shutdown = [&](int) {ec.stop();};
   salticidae::SigEvent ev_sigterm(ec, shutdown);

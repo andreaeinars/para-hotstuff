@@ -2,18 +2,21 @@ from exp_params import *
 from datetime import datetime
 import subprocess
 from matplotlib import pyplot as plt
-from matplotlib.ticker import FuncFormatter, LogLocator
+from matplotlib.ticker import FuncFormatter, LogLocator, MaxNLocator, AutoMinorLocator, NullFormatter
 import numpy as np
 import os
 
 colors = ['#3fa4d8', '#b2c324', '#ee657a', '#a363d9', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
 markers = ['o', 's', 'p', 'D', '^', 'v', '<', '>']
 linestyles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
-labels = ['100 transactions', '400 transactions', '100 transactions, 128B payload', 'x']
+#labels = ['100 tx', '400 tx','100 tx, 128B pl','100 tx, 512B pl','400 tx', '400 tx, 128B pl', ]
+labels = ['Normal','Byzantine']
+#labels =['Byzantine']
 
-
+showYlabel   = True
+#maxBlocksInView = [1,2,5,10,15,20]
 #maxBlocksInView = [1,2,5,10,15,20,25,30,40]
-maxBlocksInView = [1,2,5,10,15,20,25,30,40]
+maxBlocksInView = [4,8,16,32,64]
 faults = [1]
 logScale = True
 
@@ -148,11 +151,20 @@ def createPlot(folderName, folder=False):
             ax.set(xlabel="Blocks in View")
         if logScale:
             ax.set_yscale('log')
-            ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))  # Control the number of ticks
+            # ax.yaxis.set_major_locator(LogLocator(base=10.0,  subs='auto'))  # Control the number of ticks
+            # ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2, 10) * 0.1, numticks=4))
+            ax.yaxis.set_minor_formatter(NullFormatter())  # No labels on minor ticks
+
+        else:
+            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
         if showLegend:
+            #ax.legend(fontsize='x-small',loc='lower center', bbox_to_anchor=(0.7, 0))
             ax.legend(fontsize='x-small')
+
         ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0f}'.format(y)))
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
+
 
     # Plotting setup
     LW = 1  # linewidth
@@ -209,21 +221,21 @@ def createPlot(folderName, folder=False):
                             update_dict(protocol, pointTag, numBlocks, pointVal)
 
             if plotThroughput:
-                plot_data(axs[0], "throughput-view", "throughput (Kops/s)", logScale, showYlabel=True, showLegend=True, color=color, marker=marker, linestyle=linestyle, label=label)
+                plot_data(axs[0], "throughput-view", "Throughput (Kops/s)" if showYlabel else "", logScale, showYlabel=True, showLegend=True, color=color, marker=marker, linestyle=linestyle, label=label)
 
             if plotLatency:
                 ax = axs[0] if numPlots == 1 else axs[1]
-                ylabel = "latency (ms)" if not plotHandle else "handling time (ms)"
-                plot_data(ax, "latency-view", ylabel, logScale, showYlabel=True, showLegend=True, showXlabel=True,color=color, marker=marker, linestyle=linestyle)
+                ylabel = "Latency (ms)" if not plotHandle else "handling time (ms)"
+                plot_data(ax, "latency-view", ylabel if showYlabel else "", logScale, showYlabel=True, showLegend=True, showXlabel=True,color=color, marker=marker, linestyle=linestyle)
         
     else:
         if plotThroughput:
-            plot_data(axs[0], "throughput-view", "throughput (Kops/s)", logScale, showYlabel)
+            plot_data(axs[0], "throughput-view", "Throughput (Kops/s)" if showYlabel else "", logScale, showYlabel)
 
         if plotLatency:
             ax = axs[0] if numPlots == 1 else axs[1]
-            ylabel = "latency (ms)" if not plotHandle else "handling time (ms)"
-            plot_data(ax, "latency-view", ylabel, logScale, showYlabel, showLegend=False, showXlabel=True )
+            ylabel = "Latency (ms)" if not plotHandle else "handling time (ms)"
+            plot_data(ax, "latency-view", ylabel if showYlabel else "", logScale, showYlabel, showLegend=False, showXlabel=True )
 
     fig.savefig(plotFile, bbox_inches='tight', pad_inches=0.5)
 
@@ -238,4 +250,4 @@ def createPlot(folderName, folder=False):
     return {protocol: data_dict[protocol]["throughput-view"] for protocol in data_dict}
 
 
-createPlot("usable_stats/vsblocks_lat_2", folder=True)
+createPlot("usable_stats/exp-new/byz-exp-blocks", folder=True)

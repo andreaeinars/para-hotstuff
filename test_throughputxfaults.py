@@ -7,17 +7,17 @@ from matplotlib.ticker import FuncFormatter,LogLocator
 
 maxBlocksInView = [1,2,4,8,16]
 faults = [1,2,4,8]
-logScale     = True
+logScale     = False
 
-#colors = ['#3fa4d8', '#b2c324', '#ee657a', '#a363d9', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
-colors = ['#3fa4d8', '#ee657a', '#49BEFA', '#FA8294', '#378DB9', '#CC5668']
+colors = ['#3fa4d8', '#b2c324', '#ee657a', '#a363d9', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
+#colors = ['#3fa4d8', '#ee657a', '#49BEFA', '#FA8294', '#378DB9', '#CC5668']
 
-#markers = ['o', 's', 'p', 'D', '^', 'v', '<', '>']
-markers = ['o', 's']
-#linestyles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
-linestyles = ['-', '--']
+markers = ['o', 's', 'p', 'D', '^', 'v', '<', '>']
+#markers = ['o', 's']
+linestyles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
+#linestyles = ['-', '--']
 #labels = ['Recover = 0', 'Recover = 0.5', 'Recover = 1']
-labels = ['1 fault, 8 blocks', '1 fault, 16 blocks', 'up to f faults, 8 blocks', 'up to f faults, 16 blocks', 'no faults, 8 blocks', 'no faults, 16 blocks']
+labels = ['No faults', '0.5f faults', 'f faults']
 
 colors_crash = ['#3fa4d8', '#b2c324']
 
@@ -192,8 +192,8 @@ def createPlot(pFile, folder=False):
             #ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8), numticks=12))
         if showLegend:
             ax.legend(fontsize='x-small')
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0f}'.format(y)))
-        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
+        # ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0f}'.format(y)))
+        # ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
 
     # Plotting setup
     LW = 1  # linewidth
@@ -237,5 +237,5 @@ def createPlot(pFile, folder=False):
 
 
 #createPlot("usable_stats/recover-base-cmp/points-24-May-2024-12:06:04.388453", folder = False)
-createPlot("usable_stats/crash-exp", folder = True)
+createPlot("usable_stats/exp-new/crash-exp-faults-2", folder = True)
 #

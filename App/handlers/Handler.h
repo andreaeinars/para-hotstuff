@@ -55,6 +55,7 @@ class Handler {
   KeysFun kf;                    // To access crypto functions
   unsigned int maxBlocksInView = 10;
   float forceRecover = 0.0f;
+  int byzantine = -1;
   salticidae::EventContext pec; // peer ec
   salticidae::EventContext cec; // request ec
   PeerNet pnet;
@@ -223,7 +224,7 @@ class Handler {
   Just callTEEsignPara();
   Just callTEEstorePara(Just j);
   Just callTEEpreparePara(PBlock block, Just j);
-  Just callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes); 
+  Just callTEEVerifyPara(Just j, const std::vector<Hash> &blockHashes, bool checkHashes); 
 
 
 
@@ -253,7 +254,7 @@ class Handler {
   void changeView(View view);
 
  public:
-  Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView, float forceRecover);
+  Handler(KeysFun kf, PID id, unsigned long int timeout, unsigned int constFactor, unsigned int numFaults, unsigned int maxViews, Nodes nodes, KEY priv, PeerNet::Config pconf, ClientNet::Config cconf, unsigned int maxBlocksInView, float forceRecover, int byzantine);
   
   static std::atomic<bool> pauseRequested;
   static std::atomic<bool> resumeRequested;

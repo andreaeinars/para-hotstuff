@@ -71,7 +71,7 @@ int main(int argc, char const *argv[]) {
   if (argc > 4) { sscanf(argv[4], "%d", &numViews); }
   std::cout << KYEL << "[" << myid << "]#views=" << numViews << KNRM << std::endl;
 
-  double timeout = 5; // timeout in seconds
+  double timeout = 100; // timeout in seconds
   if (argc > 5) { sscanf(argv[5], "%lf", &timeout); }
   std::cout << KYEL << "[" << myid << "]timeout=" << timeout << KNRM << std::endl;
 
@@ -82,6 +82,10 @@ int main(int argc, char const *argv[]) {
   float forceRecover = 0.0f;  // default value
   if (argc > 7) { sscanf(argv[7], "%f", &forceRecover); }
   std::cout << KYEL << "[" << myid << "]forceRecover=" << forceRecover << KNRM << std::endl;
+
+  int byzantine = -1;  // default value
+  if (argc > 8) { sscanf(argv[8], "%d", &byzantine); }
+  std::cout << KYEL << "[" << myid << "]byzantine=" << byzantine << KNRM << std::endl;
 
 
 
@@ -183,7 +187,7 @@ int main(int argc, char const *argv[]) {
   ClientNet::Config cconfig;
   cconfig.max_msg_size(2*size);
   if (DEBUG1) std::cout << KYEL << "[" << myid << "]starting handler" << KNRM << std::endl;
-  Handler handler(kf,myid,timeout,constFactor,numFaults,numViews,nodes,priv,pconfig,cconfig, maxBlocksInView, forceRecover);
+  Handler handler(kf,myid,timeout,constFactor,numFaults,numViews,nodes,priv,pconfig,cconfig, maxBlocksInView, forceRecover, byzantine);
 
   return 0;
 };
