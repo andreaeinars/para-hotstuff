@@ -256,7 +256,8 @@ def startRemoteContainers(nodes,numReps,numClients):
             # Fetch the IP address of the container
             ipCommand = f"docker inspect -f '{{{{.NetworkSettings.Networks.{clusterNet}.IPAddress}}}}' {instanceName}"
             ipSSHCommand = f"ssh -i {node['key']} {node['user']}@{node['host']} '{ipCommand}'"
-            ipResult = subprocess.run(ipSSHCommand, shell=True, capture_output=True, text=True)
+            #ipResult = subprocess.run(ipSSHCommand, shell=True, capture_output=True, text=True)
+            ipResult = subprocess.run(ipSSHCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             ip = ipResult.stdout.strip()
 
             if ip:
@@ -365,7 +366,9 @@ def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,nu
                     dockerI = f"{dockerBase}_{node['host']}_{i}"
                     doneFile = f"done-{i}.txt"
                     find_cmd = f"ssh -i {node['key']} {sshAdr} \"{docker} exec -t {dockerI} sh -c 'test -e /app/{statsdir}/{doneFile} && echo 1 || echo 0'\""
-                    result = subprocess.run(find_cmd, shell=True, capture_output=True, text=True)
+                    #result = subprocess.run(find_cmd, shell=True, capture_output=True, text=True)
+		    result = subprocess.run(find_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
                     if result.stdout.strip() == '1':
                         remaining.remove(p)  # Process done, remove from list
                 else:
