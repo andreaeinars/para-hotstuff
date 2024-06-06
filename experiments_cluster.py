@@ -2,7 +2,6 @@
 from subprocess import Popen
 import subprocess
 from pathlib import Path
-import matplotlib.pyplot as plt
 import time
 import math
 import os
@@ -10,8 +9,7 @@ import glob
 import argparse
 from enum import Enum
 import re
-import random 
-import json
+# import json
 
 from exp_params import *
 
@@ -210,23 +208,23 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
             results["client-latency-view"], results["client-num-instances"])
 
 
-def prepareCluster():
-    f = open(clusterFile,'r')
-    info = json.load(f)
-    f.close()
+# def prepareCluster():
+#     f = open(clusterFile,'r')
+#     info = json.load(f)
+#     f.close()
 
-    nodes = info["nodes"]
-    procs = []
-    for node in nodes:
-        sshAdr = node["user"] + "@" + node["host"]
-        prep_cmd = "cd " + node["dir"] + "; git clone https://github.com/andreaeinars/para-hotstuff.git; cd para-hotstuff; docker build -t para-hotstuff ."
-        s = Popen(["ssh","-i",node["key"],"-o",sshOpt1,"-ntt",sshAdr,prep_cmd])
-        procs.append((node,s))
+#     nodes = info["nodes"]
+#     procs = []
+#     for node in nodes:
+#         sshAdr = node["user"] + "@" + node["host"]
+#         prep_cmd = "cd " + node["dir"] + "; git clone https://github.com/andreaeinars/para-hotstuff.git; cd para-hotstuff; docker build -t para-hotstuff ."
+#         s = Popen(["ssh","-i",node["key"],"-o",sshOpt1,"-ntt",sshAdr,prep_cmd])
+#         procs.append((node,s))
 
-    for (node,p) in procs:
-        while (p.poll() is None):
-            time.sleep(1)
-        print("docker container built for node:",node["node"])
+#     for (node,p) in procs:
+#         while (p.poll() is None):
+#             time.sleep(1)
+#         print("docker container built for node:",node["node"])
 
 # nodes contains the nodes' information
 def startRemoteContainers(nodes,numReps,numClients):
@@ -495,7 +493,6 @@ def runCluster():
     print("num aborted runs=", abortedRuns)
     print("aborted runs:", aborted)
 
-    createPlot(pointsFile)
 # End of runCluster
 
 
