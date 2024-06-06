@@ -431,8 +431,7 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
         executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance, maxBlocksInView, forceRecover, byzantine)
         results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
 
-        for metric, value in results.items():
-            print(f"{metric}: {value}")
+        print("results=",results)
 
         # (throughputView,latencyView,handle,cryptoSign,cryptoVerif,cryptoNumSign,cryptoNumVerif) = computeStats(protocol,numFaults,instance,repeats)
 
