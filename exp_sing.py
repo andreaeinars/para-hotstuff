@@ -207,25 +207,6 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
             results["crypto-num-sign"], results["crypto-num-verif"],results["client-throughput-view"], 
             results["client-latency-view"], results["client-num-instances"])
 
-
-# def prepareCluster():
-#     f = open(clusterFile,'r')
-#     info = json.load(f)
-#     f.close()
-
-#     nodes = info["nodes"]
-#     procs = []
-#     for node in nodes:
-#         sshAdr = node["user"] + "@" + node["host"]
-#         prep_cmd = "cd " + node["dir"] + "; git clone https://github.com/andreaeinars/para-hotstuff.git; cd para-hotstuff; docker build -t para-hotstuff ."
-#         s = Popen(["ssh","-i",node["key"],"-o",sshOpt1,"-ntt",sshAdr,prep_cmd])
-#         procs.append((node,s))
-
-#     for (node,p) in procs:
-#         while (p.poll() is None):
-#             time.sleep(1)
-#         print("docker container built for node:",node["node"])
-
 def startRemoteInstances(nodes, numReps, numClients):
     print("Starting", numReps, "replicas and", numClients, "clients using Singularity.")
     totalInstances = numReps + numClients
@@ -265,56 +246,6 @@ def startRemoteInstances(nodes, numReps, numClients):
     
     return instanceRepIds, instanceClIds
 
-
-# nodes contains the nodes' information
-def startRemoteContainers(nodes,numReps,numClients):
-    print("running in docker mode, starting" , numReps, "containers for the replicas and", numClients, "for the clients")
-
-    global ipsOfNodes
-
-    totalInstances = numReps + numClients
-    instancesPerNode = totalInstances // len(nodes) + (totalInstances % len(nodes) > 0)
-    instanceRepIds = []
-    instanceClIds = []
-
-    currentInstance = 0
-    for node in nodes:
-        for i in range(instancesPerNode):
-            if currentInstance >= totalInstances:
-                break
-            instanceType = "replica" if currentInstance < numReps else "client"
-            instanceName = f"{dockerBase}_{node['node']}_{i}"
-
-            # Setup the Docker command to run the container
-            dockerCommand = (
-                f"docker run -d --expose=8000-9999 --network={clusterNet} "
-                f"--cap-add=NET_ADMIN --name {instanceName} {dockerBase}"
-            )
-            sshCommand = f"ssh -i {node['key']} {node['user']}@{node['host']} '{dockerCommand}'"
-            subprocess.run(sshCommand, shell=True)
-
-            # Fetch the IP address of the container
-            ipCommand = f"docker inspect -f '{{{{.NetworkSettings.Networks.{clusterNet}.IPAddress}}}}' {instanceName}"
-            ipSSHCommand = f"ssh -i {node['key']} {node['user']}@{node['host']} '{ipCommand}'"
-            #ipResult = subprocess.run(ipSSHCommand, shell=True, capture_output=True, text=True)
-            ipResult = subprocess.run(ipSSHCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-            ip = ipResult.stdout.strip()
-
-            if ip:
-                if instanceType == "replica":
-                    ipsOfNodes[currentInstance] = ip
-                    instanceRepIds.append((currentInstance, instanceName, node))
-                else:
-                    instanceClIds.append((currentInstance, instanceName, node))
-                print(f"Started {instanceType} {instanceName} at IP {ip} on {node['host']}.")
-
-            currentInstance += 1
-
-    genLocalConf(numReps,addresses)
-
-    return (instanceRepIds, instanceClIds)
-## End of startRemoteContainers
-
 def makeClusterSing(instanceIds):
     ncores = numMakeCores if useMultiCores else 1
     print(">> making", str(len(instanceIds)), "instance(s) using", str(ncores), "core(s)")
@@ -349,46 +280,6 @@ def makeClusterSing(instanceIds):
 
     print("all instances are made")
 
-
-def makeCluster(instanceIds):
-    ncores = numMakeCores if useMultiCores else 1
-    print(">> making",str(len(instanceIds)),"instance(s) using",str(ncores),"core(s)")
-
-    procs  = []
-    make0  = "make -j "+str(ncores)
-    make   = make0 + " server client"
-
-    for (n,i,node) in instanceIds:
-        instanceName = dockerBase + f"_{node['node']}_{i}"
-        sshAdr = f"{node['user']}@{node['host']}"
-        keyPath = node['key']
-        dirPath = node['dir']
-
-        # Copy parameter files to node
-        scp_cmd = f"scp -i {keyPath} -o {sshOpt1} params.h {sshAdr}:{dirPath}/params.h"
-        subprocess.run(scp_cmd, shell=True)
-
-        # Copy parameters into the Docker container
-        docker_cp_cmd = f"docker cp {dirPath}/params.h {instanceName}:/app/App/"
-        ssh_cp_cmd = f"ssh -i {keyPath} -o {sshOpt1} {sshAdr} '{docker_cp_cmd}'"
-        subprocess.run(ssh_cp_cmd, shell=True)
-
-        # Compile the application inside the Docker container
-        docker_exec_cmd = f"docker exec -t {instanceName} bash -c 'make clean; {make}'"
-        ssh_exec_cmd = f"ssh -i {keyPath} -o {sshOpt1} {sshAdr} '{docker_exec_cmd}'"
-        proc = subprocess.Popen(ssh_exec_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        procs.append((n, i, node, proc))
-
-    for (n, i, node, p) in procs:
-        stdout, stderr = p.communicate()
-        if p.returncode != 0:
-            print(f"Error compiling on instance {i} at {node['host']}: {stderr.decode()}")
-        else:
-            print(f"Instance {i} at {node['host']} compiled successfully.")
-
-    print("all instances are made")
-# End of makeCluster
-
 def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
     print(">> connecting to",str(len(instanceRepIds)),"replica instance(s)")
     print(">> connecting to",str(len(instanceClIds)),"client instance(s)")
@@ -407,18 +298,6 @@ def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,nu
 
     print("started", len(procsRep), "replicas")
 
-    # # FOR REPLICAS
-    # for (n, i, node) in instanceRepIds:
-    #     instanceName = f"{dockerBase}_{node['host']}_{i}"
-    #     sshAdr = f"{node['user']}@{node['host']}"
-    #     server_cmd = f"{docker} exec -t {instanceName} ./server {n} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
-    #     ssh_cmd = f"ssh -i {node['key']} {sshAdr} '{server_cmd}'"
-    #     proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #     procsRep.append((n, i, node, proc))
-    #     print(f"Replica {n} started on {node['host']}")
-
-    # print("started", len(procsRep), "replicas")
-
     # we give some time for the replicas to connect before starting the clients
     wait = 5 + int(math.ceil(math.log(numFaults,2)))
     time.sleep(wait)
@@ -432,17 +311,6 @@ def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,nu
 
     print("started", len(procsCl), "clients")
 
-    # FOR CLIENTS
-    # for (n, i, node) in instanceClIds:
-    #     instanceName = f"{dockerBase}_{node['host']}_{i}"
-    #     sshAdr = f"{node['user']}@{node['host']}"
-    #     client_cmd = f"{docker} exec -t {instanceName} ./client {n} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
-    #     ssh_cmd = f"ssh -i {node['key']} {sshAdr} '{client_cmd}'"
-    #     proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #     procsCl.append((n, i, node, proc))
-    #     print(f"Client {n} started on {node['host']}")
-
-    # print("started", len(procsCl), "clients")
     totalTime = 0
     
     remaining = procsRep + procsCl
@@ -465,61 +333,6 @@ def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,nu
             proc.terminate()
             proc.wait()
             print(f"Cleanup: Forced termination of {tag} at node {n}")
-
-#     if expmode == "TVL":
-#         print("TO FIX: TVL option")
-#     else:
-#         remaining = procsRep
-#         # We wait here for all processes to complete
-#         # but we stop the execution if it takes too long (cutOffBound)
-#         while remaining and totalTime < cutOffBound:
-#             for p in remaining:
-#                 tag, n, i, node, proc = p
-#                 if proc.poll() is None:  # Process is still running
-#                     sshAdr = f"{node['user']}@{node['host']}"
-#                     dockerI = f"{dockerBase}_{node['host']}_{i}"
-#                     doneFile = f"done-{i}.txt"
-#                     find_cmd = f"ssh -i {node['key']} {sshAdr} \"{docker} exec -t {dockerI} sh -c 'test -e /app/{statsdir}/{doneFile} && echo 1 || echo 0'\""
-#                     #result = subprocess.run(find_cmd, shell=True, capture_output=True, text=True)
-#                     result = subprocess.run(find_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-
-#                     if result.stdout.strip() == '1':
-#                         remaining.remove(p)  # Process done, remove from list
-#                 else:
-#                     remaining.remove(p)  # Process terminated, remove from list
-#             print("remaining processes:", remaining)
-#             # We filter out the ones that are done. x is of the form (t,i,p)
-#             time.sleep(1)
-#             totalTime += 1
-
-#     global completeRuns, abortedRuns, aborted
-
-#     if remaining:
-#         print("Time cutoff reached. Aborting remaining processes.")
-#         abortedRuns += len(remaining)
-#         conf = (protocol,numFaults,instance)
-#         aborted.append(conf)
-#         f = open(abortedFile, 'a')
-#         f.write(str(conf)+"\n")
-#         f.close()
-#         for tag, n, i, node, proc in remaining:
-#             proc.terminate()
-#             print(f"Aborted {tag} at node {n}")
-#     else:
-#         completeRuns += 1
-#         print("All processes completed within the time limit.")
-
-#     for tag, n, i, node, proc in procsRep + procsCl:
-#         if proc.poll() is None:  # Check if the process is still running
-#             print(f"Still running: {tag} at node {n}, terminating now.")
-#             proc.terminate()  # Forcefully terminate the process
-#             proc.wait()  # Wait for the process to terminate
-#         # Additional cleanup commands sent to each node
-#         sshAdr = f"{node['user']}@{node['host']}"
-#         dockerI = f"{dockerBase}_{node['host']}_{i}"
-#         cleanup_cmd = f"ssh -i {node['key']} {sshAdr} '{docker} stop {dockerI}; {docker} rm {dockerI}'"
-#         subprocess.run(cleanup_cmd, shell=True)
-#         print(f"Cleanup commands sent to {node['host']}")
 # # End of executeClusterInstances
 
 def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,maxBlocksInView=0,forceRecover=0,byzantine=-1):
@@ -536,7 +349,6 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     instanceRepIds, instanceClIds = startRemoteInstances(nodes, numReps, numClients)
     mkParams(protocol,constFactor,numFaults,numTrans,payloadSize)
     makeClusterSing(instanceRepIds + instanceClIds)  # Assumes instanceIds is a list of tuples or similar structure returned by startRemoteInstances
-
     
     # The rest of your logic for setting up and executing the experiment
     for instance in range(repeats):
@@ -549,26 +361,6 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     for (n, i, node) in instanceRepIds + instanceClIds:
         sshCmd = f"ssh {node['user']}@{node['host']} 'cleanup_command'"
         subprocess.run(sshCmd, shell=True)
-
-    # starts the containers
-    # (instanceRepIds,instanceClIds) = startRemoteContainers(nodes,numReps,numClients)
-    # mkParams(protocol,constFactor,numFaults,numTrans,payloadSize)
-    # # make all nodes
-    # makeCluster(instanceRepIds+instanceClIds)
-
-    # for instance in range(repeats):
-    #     clearStatsDir()
-    #     # execute the experiment
-    #     executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance, maxBlocksInView, forceRecover, byzantine)
-    #     results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
-
-    #     print("results=",results)
-
-    #     # (throughputView,latencyView,handle,cryptoSign,cryptoVerif,cryptoNumSign,cryptoNumVerif) = computeStats(protocol,numFaults,instance,repeats)
-
-    # for (n, i, node) in instanceRepIds + instanceClIds:
-    #     sshCmd = f"ssh {node['user']}@{node['host']} '{docker} stop {dockerBase + i}; {docker} rm {dockerBase + i}'"
-    #     subprocess.run(sshCmd, shell=True)
 # End of executeCluster
 
 def get_host_ips(hostnames):
@@ -587,37 +379,8 @@ def runCluster():
     printNodePointParams()
 
     hostnames = subprocess.check_output('scontrol show hostname $SLURM_JOB_NODELIST', shell=True).decode().strip().split()
-    #ips = get_host_ips(hostnames)
-    #nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': ips[hostname], 'dir': '/home/aeinarsd/parahs-test', 'key': 'id_rsa.parahs'} for hostname in hostnames]
-
-    #Create dummy hostnames for testing 
-    #hostnames = ["node1", "node2", "node3"]
     #nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/parahs-test', 'key': '/home/aeinarsd/id_rsa.parahs'} for hostname in hostnames]
-    nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/parahs-test', 'key': 'id_rsa.parahs'} for hostname in hostnames]
-
-    #init_cmd  = docker + " swarm init"
-    # leave_cmd = docker + " swarm leave --force"
-    # join_cmd = None
-
-    # if hostnames:
-    #     master_node = hostnames[0]
-    #     try:
-    #         # Try to initialize the swarm
-    #         result = subprocess.check_output(f"{docker} -H {master_node} swarm init", shell=True).decode()
-    #         join_cmd_match = re.search("docker swarm join --token .*", result)
-    #         join_cmd = join_cmd_match.group(0) if join_cmd_match else None
-    #     except subprocess.CalledProcessError as e:
-    #         print("Swarm initialization failed:", e)
-
-    # # Join the swarm on other nodes
-    # if join_cmd:
-    #     for node in hostnames[1:]:  # Skip the first node since it's the master
-    #         subprocess.run(f"ssh {node['user']}@{node['host']} '{join_cmd}'", shell=True)
-
-    # # Create an overlay network
-    # if join_cmd:
-    #     net_cmd = docker + " network create --driver=overlay --attachable " + clusterNet
-    #     subprocess.run(net_cmd, shell=True)
+    nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff', 'key': 'id_rsa.parahs'} for hostname in hostnames]
 
     for numFaults in faults:
         if runBasic:
@@ -627,10 +390,6 @@ def runCluster():
         if runPara:
             for maxBlocks in maxBlocksInView:
                 executeCluster(nodes,protocol=Protocol.PARA,constFactor=3,numClTrans=numClTrans,sleepTime=sleepTime,numViews=numViews,cutOffBound=cutOffBound,numFaults=numFaults,maxBlocksInView=maxBlocks,forceRecover=forceRecover,byzantine=byzantine)
-
-    # for node in nodes:
-    #     subprocess.run(f"ssh {node['user']}@{node['host']} '{leave_cmd}'", shell=True)
-    # subprocess.run([docker + " network rm " + clusterNet], shell=True)
 
     print("num complete runs=", completeRuns)
     print("num aborted runs=", abortedRuns)
@@ -740,11 +499,6 @@ if args.pall:
     # TODO: Set runPara to True when ready
     print("SUCCESSFULLY PARSED ARGUMENT - testing all protocols")
 
-
-
-if args.prepare:
-    print("preparing cluster")
-    prepareCluster()
-elif args.cluster:
+if args.cluster:
     print("lauching cluster experiment")
     runCluster()
