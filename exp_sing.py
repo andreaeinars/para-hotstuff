@@ -316,11 +316,11 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     remaining = procsRep + procsCl
     while remaining and totalTime < cutOffBound:
         for p in remaining:
-            tag, n, i, node, proc = p
+            n, i, node, proc = p
             if proc.poll() is None:
                 if totalTime >= newtimeout:  # Custom logic to decide when to stop waiting
                     proc.terminate()  # Forcefully terminate if over timeout
-                    print(f"Timeout reached: Terminated {tag} at node {node['host']}")
+                    print(f"Timeout reached: Terminated node {node['host']}")
             else:
                 remaining.remove(p)  # Process has completed
         time.sleep(1)
@@ -328,11 +328,11 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     print("All processes completed within the time limit.")
 
-    for tag, n, i, node, proc in procsRep + procsCl:
+    for n, i, node, proc in procsRep + procsCl:
         if proc.poll() is None:
             proc.terminate()
             proc.wait()
-            print(f"Cleanup: Forced termination of {tag} at node {n}")
+            print(f"Cleanup: Forced termination at node {n}")
 
     return instanceRepIds, instanceClIds
 # # End of executeClusterInstances
