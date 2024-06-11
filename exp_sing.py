@@ -189,6 +189,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     procsCl    = []
     #newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
     newtimeout = 300
+
     currentInstance = 0
     for node in nodes:
         instancesPerNode = totalInstances // len(nodes) + (totalInstances % len(nodes) > 0)
@@ -197,8 +198,26 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 break
             instanceType = "replica" if currentInstance < numReps else "client"
             instanceName = f"instance_{node['node']}_{i}"
-            ip = node['host'] 
-            ipsOfNodes[currentInstance] = ip
+            ip = node['host']
+
+            if instanceType == "replica":
+                ipsOfNodes[currentInstance] = ip  # Store IP only for replicas if that's all genLocalConf needs
+
+            currentInstance += 1
+
+    # Generate configuration now that all IPs are collected
+    genLocalConf(numReps, addresses)  # Make sure to use the actual filename needed
+
+    currentInstance = 0
+    for node in nodes:
+        instancesPerNode = totalInstances // len(nodes) + (totalInstances % len(nodes) > 0)
+        for i in range(instancesPerNode):
+            if currentInstance >= totalInstances:
+                break
+            instanceType = "replica" if currentInstance < numReps else "client"
+            instanceName = f"instance_{node['node']}_{i}"
+            # ip = node['host'] 
+            # ipsOfNodes[currentInstance] = ip
 
             if instanceType == "replica":
                 server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
@@ -218,7 +237,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 instanceClIds.append((currentInstance, instanceName, node))
             currentInstance += 1
 
-    genLocalConf(numReps,addresses)
+    # genLocalConf(numReps,addresses)
 
     print("started", len(procsRep), "replicas")
     print("started", len(procsCl), "clients")
