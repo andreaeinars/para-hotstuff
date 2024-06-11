@@ -284,6 +284,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 procsCl.append((currentInstance, instanceName, node, proc))
                 print(f"Client {currentInstance} started on {node['host']}")
                 instanceClIds.append((currentInstance, instanceName, node))
+        currentInstance = 0
 
 
 
