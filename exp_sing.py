@@ -67,45 +67,6 @@ def mkParams(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView
     f.write("#endif\n")
     f.close()
 
-def mkApp(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView=0):
-    ncores = 1
-    if useMultiCores:
-        ncores = numMakeCores
-    print(">> making using",str(ncores),"core(s)")
-
-    mkParams(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView)
-
-    if runDocker:
-        numReps = (constFactor * numFaults) + 1
-        lr = list(map(lambda x: str(x), list(range(numReps))))           # replicas
-        lc = list(map(lambda x: "c" + str(x), list(range(numClients))))  # clients
-        for i in lr + lc:
-            instance  = dockerBase + i
-            instancex = instance + "x"
-            instancey = instance
-            # copying App
-            adst  = instance + ":/app/App/"
-            adstx = instancex + ":/app/App/"
-            adsty = adst
-            # if dockerCpu > 0 we're restricting the cpu, in which case we'll compile on the non-restricted instance and copy the files over
-            if dockerCpu > 0 and dockerCpu < 1:
-                instancey = instancex
-                adsty = adstx
-            subprocess.run([docker + " cp Makefile "  + instancey + ":/app/"], shell=True, check=True)
-            subprocess.run([docker + " cp App/. "     + adsty], shell=True, check=True)
-            subprocess.run([docker + " exec -t " + instancey + " bash -c \"make clean\""], shell=True, check=True)
-            subprocess.run([docker + " exec -t " + instancey + " bash -c \"make -j " + str(ncores) + " server client\""], shell=True, check=True)
-            if dockerCpu > 0 and dockerCpu < 1:
-                print("copying files from " + instancex + " to " + instance)
-                tmp = "docker_tmp"
-                Path(tmp).mkdir(parents=True, exist_ok=True)
-                subprocess.run([docker + " cp " + instancex + ":/app/." + " " + tmp + "/"], shell=True, check=True)
-                subprocess.run([docker + " cp " + tmp + "/." + " " + instance + ":/app/"], shell=True, check=True)
-        
-    else:
-        subprocess.call(["make","clean"])
-        subprocess.call(["make","-j",str(ncores),"server","client"])
-
 def printNodePoint(protocol,numFaults,tag,val, maxBlocksInView=0):
     protocol_name = f"{protocol.value}-{maxBlocksInView}BLOCKS" if 'PARALLEL_HOTSTUFF' in protocol.value and maxBlocksInView > 0 else protocol.value
     f = open(pointsFile, 'a')
@@ -281,34 +242,72 @@ def makeClusterSing(instanceIds):
 
     print("all instances are made")
 
-def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
-    print(">> connecting to",str(len(instanceRepIds)),"replica instance(s)")
-    print(">> connecting to",str(len(instanceClIds)),"client instance(s)")
+def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
+#def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
+    # print(">> connecting to",str(len(instanceRepIds)),"replica instance(s)")
+    # print(">> connecting to",str(len(instanceClIds)),"client instance(s)")
+    totalInstances = numReps + numClients
+    instanceRepIds = []
+    instanceClIds = []
+
+    global ipsOfNodes
+
 
     procsRep   = []
     procsCl    = []
     newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
 
-    for n, i, node in instanceRepIds:
-        #singularity_image_path = "para-hotstuff.sif"  # Make sure this path is correct
-        server_command = f"singularity exec {sing_file} ./server {n} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
-        ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{server_command}'"
-        proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        procsRep.append((n, i, node, proc))
-        print(f"Replica {n} started on {node['host']}")
+    currentInstance = 0
+    for node in nodes:
+        instancesPerNode = totalInstances // len(nodes) + (totalInstances % len(nodes) > 0)
+        for i in range(instancesPerNode):
+            if currentInstance >= totalInstances:
+                break
+            instanceType = "replica" if currentInstance < numReps else "client"
+            instanceName = f"instance_{node['node']}_{i}"
+            ip = node['host'] 
+            ipsOfNodes[currentInstance] = ip
+
+            if instanceType == "replica":
+                server_command = f"singularity exec {sing_file} ./server {n} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{server_command}'"
+                proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                procsRep.append((n, i, node, proc))
+                print(f"Replica {n} started on {node['host']}")
+                instanceRepIds.append((currentInstance, instanceName, node))
+            else:
+                wait = 5 + int(math.ceil(math.log(numFaults,2)))
+                time.sleep(wait)
+                client_command = f"singularity exec {sing_file} ./client {n} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{client_command}'"
+                proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                procsCl.append((n, i, node, proc))
+                print(f"Client {n} started on {node['host']}")
+                instanceClIds.append((currentInstance, instanceName, node))
+
+
+
+
+    # for n, i, node in instanceRepIds:
+    #     #singularity_image_path = "para-hotstuff.sif"  # Make sure this path is correct
+    #     server_command = f"singularity exec {sing_file} ./server {n} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+    #     ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{server_command}'"
+    #     proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #     procsRep.append((n, i, node, proc))
+    #     print(f"Replica {n} started on {node['host']}")
 
     print("started", len(procsRep), "replicas")
 
     # we give some time for the replicas to connect before starting the clients
-    wait = 5 + int(math.ceil(math.log(numFaults,2)))
-    time.sleep(wait)
+    # wait = 5 + int(math.ceil(math.log(numFaults,2)))
+    # time.sleep(wait)
 
-    for n, i, node in instanceClIds:
-        client_command = f"singularity exec {singularity_image_path} ./client {n} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
-        ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{client_command}'"
-        proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        procsCl.append((n, i, node, proc))
-        print(f"Client {n} started on {node['host']}")
+    # for n, i, node in instanceClIds:
+    #     client_command = f"singularity exec {sing_file} ./client {n} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+    #     ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{client_command}'"
+    #     proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #     procsCl.append((n, i, node, proc))
+    #     print(f"Client {n} started on {node['host']}")
 
     print("started", len(procsCl), "clients")
 
@@ -334,6 +333,8 @@ def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,nu
             proc.terminate()
             proc.wait()
             print(f"Cleanup: Forced termination of {tag} at node {n}")
+
+    return instanceRepIds, instanceClIds
 # # End of executeClusterInstances
 
 def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,maxBlocksInView=0,forceRecover=0,byzantine=-1):
@@ -347,14 +348,15 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
 
     numReps = (constFactor * numFaults) + 1
 
-    instanceRepIds, instanceClIds = startRemoteInstances(nodes, numReps, numClients)
+    #instanceRepIds, instanceClIds = startRemoteInstances(nodes, numReps, numClients)
     mkParams(protocol,constFactor,numFaults,numTrans,payloadSize)
-    makeClusterSing(instanceRepIds + instanceClIds)  # Assumes instanceIds is a list of tuples or similar structure returned by startRemoteInstances
+    #makeClusterSing(instanceRepIds + instanceClIds)  # Assumes instanceIds is a list of tuples or similar structure returned by startRemoteInstances
     
     # The rest of your logic for setting up and executing the experiment
     for instance in range(repeats):
         clearStatsDir()  # Clear any existing data
-        executeClusterInstances(instanceRepIds, instanceClIds, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
+        instanceRepIds, instanceClIds = executeClusterInstances(nodes, numReps, numClients, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
+        #executeClusterInstances(instanceRepIds, instanceClIds, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
         results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
         print("Results:", results)
 
