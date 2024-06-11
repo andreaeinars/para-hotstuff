@@ -7,7 +7,7 @@
 module load python/3.6.0
 
 # Navigate to your script's directory
-cd /var/scratch/aeinarsd/para-hotstuff/
+cd /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/
 
 # Execute 
-srun  python3 exp_sing.py --cluster --p1 --repeats 1 --faults 1 --views 5
+python3 exp_sing.py --cluster --p1 --repeats 1 --faults 1 --views 5

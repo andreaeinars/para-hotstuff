@@ -10,6 +10,7 @@ import argparse
 from enum import Enum
 import re
 # import json
+import select
 
 from exp_params import *
 
@@ -169,6 +170,14 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
             results["crypto-num-sign"], results["crypto-num-verif"],results["client-throughput-view"], 
             results["client-latency-view"], results["client-num-instances"])
 
+def print_output(proc, name):
+    """ Helper function to check and print output from a non-blocking read """
+    readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
+    for r in readable:
+        line = r.readline()
+        if line:
+            print(f"Output from {name}: {line.decode().strip()}")
+
 def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
     totalInstances = numReps + numClients
     instanceRepIds = []
@@ -178,8 +187,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     procsRep   = []
     procsCl    = []
-    newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
-
+    #newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
+    newtimeout = 300
     currentInstance = 0
     for node in nodes:
         instancesPerNode = totalInstances // len(nodes) + (totalInstances % len(nodes) > 0)
@@ -192,8 +201,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             ipsOfNodes[currentInstance] = ip
 
             if instanceType == "replica":
-                server_command = f"singularity exec {sing_file} ./server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
-                ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{server_command}'"
+                server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                ssh_command = f"ssh {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsRep.append((currentInstance, instanceName, node, proc))
                 print(f"Replica {currentInstance} started on {node['host']}")
@@ -201,8 +210,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             else:
                 wait = 5 + int(math.ceil(math.log(numFaults,2)))
                 time.sleep(wait)
-                client_command = f"singularity exec {sing_file} ./client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
-                ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{client_command}'"
+                client_command = f"singularity exec {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                ssh_command = f"ssh {node['user']}@{node['host']} '{client_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsCl.append((currentInstance, instanceName, node, proc))
                 print(f"Client {currentInstance} started on {node['host']}")
@@ -215,11 +224,12 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     print("started", len(procsCl), "clients")
 
     totalTime = 0
-    
+    #time.sleep(300); 
     remaining = procsRep + procsCl
     while remaining and totalTime < cutOffBound:
         for p in remaining:
             n, i, node, proc = p
+            print_output(proc, node['host'])
             if proc.poll() is None:
                 if totalTime >= newtimeout:  # Custom logic to decide when to stop waiting
                     proc.terminate()  # Forcefully terminate if over timeout
@@ -234,6 +244,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     for n, i, node, proc in procsRep + procsCl:
         if proc.poll() is None:
+            print_output(proc, node['host'])
             proc.terminate()
             proc.wait()
             print(f"Cleanup: Forced termination at node {n}")
@@ -262,9 +273,9 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
         results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
         print("Results:", results)
     
-    for (n, i, node) in instanceRepIds + instanceClIds:
-        sshCmd = f"ssh {node['user']}@{node['host']} 'cleanup_command'"
-        subprocess.run(sshCmd, shell=True)
+    #for (n, i, node) in instanceRepIds + instanceClIds:
+     #   sshCmd = f"ssh {node['user']}@{node['host']} 'cleanup_command'"
+      #  subprocess.run(sshCmd, shell=True)
 # End of executeCluster
 
 def get_host_ips(hostnames):
@@ -284,7 +295,7 @@ def runCluster():
 
     hostnames = subprocess.check_output('scontrol show hostname $SLURM_JOB_NODELIST', shell=True).decode().strip().split()
     #nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/parahs-test', 'key': '/home/aeinarsd/id_rsa.parahs'} for hostname in hostnames]
-    nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff', 'key': 'id_rsa.parahs'} for hostname in hostnames]
+    nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff'} for hostname in hostnames]
 
     for numFaults in faults:
         if runBasic:
