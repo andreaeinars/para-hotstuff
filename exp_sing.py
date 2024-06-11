@@ -209,6 +209,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 instanceClIds.append((currentInstance, instanceName, node))
             currentInstance += 1
 
+    genLocalConf(numReps,addresses)
+
     print("started", len(procsRep), "replicas")
     print("started", len(procsCl), "clients")
 
@@ -223,7 +225,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                     proc.terminate()  # Forcefully terminate if over timeout
                     print(f"Timeout reached: Terminated node {node['host']}")
             else:
-                print(f"Node {instanceName} has completed")
+                print(f"Node {node['host']} has completed")
                 remaining.remove(p)  # Process has completed
         time.sleep(1)
         totalTime += 1
