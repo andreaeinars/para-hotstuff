@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=para-hs
-#SBATCH --nodes=2
+#SBATCH --nodes=5
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=00:15:00
 

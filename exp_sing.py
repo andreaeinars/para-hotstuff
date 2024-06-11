@@ -169,89 +169,12 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
             results["crypto-num-sign"], results["crypto-num-verif"],results["client-throughput-view"], 
             results["client-latency-view"], results["client-num-instances"])
 
-def startRemoteInstances(nodes, numReps, numClients):
-    print("Starting", numReps, "replicas and", numClients, "clients using Singularity.")
-    totalInstances = numReps + numClients
-    instanceRepIds = []
-    instanceClIds = []
-
-    global ipsOfNodes
-
-    currentInstance = 0
-    for node in nodes:
-        instancesPerNode = totalInstances // len(nodes) + (totalInstances % len(nodes) > 0)
-        for i in range(instancesPerNode):
-            if currentInstance >= totalInstances:
-                break
-            instanceType = "replica" if currentInstance < numReps else "client"
-            instanceName = f"instance_{node['node']}_{i}"
-            #singularity_image_path = "para-hotstuff.sif"  # Ensure this path is correct
-
-            ip = node['host'] 
-            ipsOfNodes[currentInstance] = ip
-
-            # Command to run Singularity instance
-            singularity_cmd = f"singularity exec {sing_file} ./your_app_binary"
-            ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{singularity_cmd}'"
-            subprocess.run(ssh_command, shell=True)
-            print(f"Started {instanceType} {instanceName} on {node['host']}.")
-
-            # Collect instance identifiers
-            if instanceType == "replica":
-                instanceRepIds.append((currentInstance, instanceName, node))
-            else:
-                instanceClIds.append((currentInstance, instanceName, node))
-
-            currentInstance += 1
-
-    genLocalConf(numReps,addresses)
-    
-    return instanceRepIds, instanceClIds
-
-def makeClusterSing(instanceIds):
-    ncores = numMakeCores if useMultiCores else 1
-    print(">> making", str(len(instanceIds)), "instance(s) using", str(ncores), "core(s)")
-
-    procs = []
-    make0 = "make -j " + str(ncores)
-    make = make0 + " server client"
-
-    for (n, i, node) in instanceIds:
-        instanceName = "singularity_instance_" + str(n) + "_" + str(i)  # This would need to align with how you manage Singularity instances
-        sshAdr = f"{node['user']}@{node['host']}"
-        keyPath = node['key']
-        dirPath = node['dir']
-
-        # Copy parameter files to node
-        scp_cmd = f"scp -i {keyPath} -o StrictHostKeyChecking=no params.h {sshAdr}:{dirPath}/params.h"
-        subprocess.run(scp_cmd, shell=True)
-
-        # The following needs to be adapted for Singularity
-        # Run singularity to start and execute the compilation within the singularity container
-        singularity_cmd = f"singularity exec {sing_file} make -C {dirPath} clean; {make}"
-        ssh_cmd = f"ssh -i {keyPath} -o StrictHostKeyChecking=no {sshAdr} '{singularity_cmd}'"
-        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        procs.append((n, i, node, proc))
-
-    for (n, i, node, p) in procs:
-        stdout, stderr = p.communicate()
-        if p.returncode != 0:
-            print(f"Error compiling on instance {i} at {node['host']}: {stderr.decode()}")
-        else:
-            print(f"Instance {i} at {node['host']} compiled successfully.")
-
-    print("all instances are made")
-
 def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
-#def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
-    # print(">> connecting to",str(len(instanceRepIds)),"replica instance(s)")
-    # print(">> connecting to",str(len(instanceClIds)),"client instance(s)")
     totalInstances = numReps + numClients
     instanceRepIds = []
     instanceClIds = []
 
     global ipsOfNodes
-
 
     procsRep   = []
     procsCl    = []
@@ -286,30 +209,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 instanceClIds.append((currentInstance, instanceName, node))
             currentInstance += 1
 
-
-
-
-    # for n, i, node in instanceRepIds:
-    #     #singularity_image_path = "para-hotstuff.sif"  # Make sure this path is correct
-    #     server_command = f"singularity exec {sing_file} ./server {n} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
-    #     ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{server_command}'"
-    #     proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #     procsRep.append((n, i, node, proc))
-    #     print(f"Replica {n} started on {node['host']}")
-
     print("started", len(procsRep), "replicas")
-
-    # we give some time for the replicas to connect before starting the clients
-    # wait = 5 + int(math.ceil(math.log(numFaults,2)))
-    # time.sleep(wait)
-
-    # for n, i, node in instanceClIds:
-    #     client_command = f"singularity exec {sing_file} ./client {n} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
-    #     ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{client_command}'"
-    #     proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #     procsCl.append((n, i, node, proc))
-    #     print(f"Client {n} started on {node['host']}")
-
     print("started", len(procsCl), "clients")
 
     totalTime = 0
@@ -323,6 +223,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                     proc.terminate()  # Forcefully terminate if over timeout
                     print(f"Timeout reached: Terminated node {node['host']}")
             else:
+                print(f"Node {instanceName} has completed")
                 remaining.remove(p)  # Process has completed
         time.sleep(1)
         totalTime += 1
@@ -349,10 +250,8 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
 
     numReps = (constFactor * numFaults) + 1
 
-    #instanceRepIds, instanceClIds = startRemoteInstances(nodes, numReps, numClients)
     mkParams(protocol,constFactor,numFaults,numTrans,payloadSize)
-    #makeClusterSing(instanceRepIds + instanceClIds)  # Assumes instanceIds is a list of tuples or similar structure returned by startRemoteInstances
-    
+
     # The rest of your logic for setting up and executing the experiment
     for instance in range(repeats):
         clearStatsDir()  # Clear any existing data
@@ -360,7 +259,6 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
         #executeClusterInstances(instanceRepIds, instanceClIds, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
         results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
         print("Results:", results)
-
     
     for (n, i, node) in instanceRepIds + instanceClIds:
         sshCmd = f"ssh {node['user']}@{node['host']} 'cleanup_command'"
