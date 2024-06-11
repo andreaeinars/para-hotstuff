@@ -13,6 +13,7 @@ import re
 
 from exp_params import *
 
+
 ## Code
 class Protocol(Enum):
     BASIC      = "BASIC_BASELINE"           # basic baseline
@@ -223,13 +224,13 @@ def startRemoteInstances(nodes, numReps, numClients):
                 break
             instanceType = "replica" if currentInstance < numReps else "client"
             instanceName = f"instance_{node['node']}_{i}"
-            singularity_image_path = "para-hotstuff.sif"  # Ensure this path is correct
+            #singularity_image_path = "para-hotstuff.sif"  # Ensure this path is correct
 
             ip = node['host'] 
             ipsOfNodes[currentInstance] = ip
 
             # Command to run Singularity instance
-            singularity_cmd = f"singularity exec {singularity_image_path} ./your_app_binary"
+            singularity_cmd = f"singularity exec {sing_file} ./your_app_binary"
             ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{singularity_cmd}'"
             subprocess.run(ssh_command, shell=True)
             print(f"Started {instanceType} {instanceName} on {node['host']}.")
@@ -266,7 +267,7 @@ def makeClusterSing(instanceIds):
 
         # The following needs to be adapted for Singularity
         # Run singularity to start and execute the compilation within the singularity container
-        singularity_cmd = f"singularity exec {dirPath}/para-hotstuff.sif make -C {dirPath} clean; {make}"
+        singularity_cmd = f"singularity exec {sing_file} make -C {dirPath} clean; {make}"
         ssh_cmd = f"ssh -i {keyPath} -o StrictHostKeyChecking=no {sshAdr} '{singularity_cmd}'"
         proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         procs.append((n, i, node, proc))
@@ -289,8 +290,8 @@ def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,nu
     newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
 
     for n, i, node in instanceRepIds:
-        singularity_image_path = "para-hotstuff.sif"  # Make sure this path is correct
-        server_command = f"singularity exec {singularity_image_path} ./server {n} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+        #singularity_image_path = "para-hotstuff.sif"  # Make sure this path is correct
+        server_command = f"singularity exec {sing_file} ./server {n} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
         ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{server_command}'"
         proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         procsRep.append((n, i, node, proc))

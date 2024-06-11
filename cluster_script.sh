@@ -10,4 +10,4 @@ module load python/3.6.0
 cd /var/scratch/aeinarsd/para-hotstuff/
 
 # Execute 
-srun  python3 experiments_cluster.py --cluster --p1 --repeats 1 --faults 1 --views 5
+srun  python3 exp_sing.py --cluster --p1 --repeats 1 --faults 1 --views 5

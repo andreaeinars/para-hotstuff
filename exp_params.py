@@ -82,6 +82,7 @@ debugFile    = statsdir + "/debug-" + timestampStr
 tvlFile      = statsdir + "/tvl-" + timestampStr + ".png"
 clusterFile  = "nodes"
 clusterNet   = "paraHSNet"
+sing_file = "/home/aeinarsd/var/scratch/para-hotstuff/para-hotstuff.sif"
 
 sshOpt1  = "StrictHostKeyChecking=no"
 
