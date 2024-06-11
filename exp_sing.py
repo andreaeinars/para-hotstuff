@@ -272,8 +272,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 server_command = f"singularity exec {sing_file} ./server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                procsRep.append((n, i, node, proc))
-                print(f"Replica {n} started on {node['host']}")
+                procsRep.append((currentInstance, instanceName, node, proc))
+                print(f"Replica {currentInstance} started on {node['host']}")
                 instanceRepIds.append((currentInstance, instanceName, node))
             else:
                 wait = 5 + int(math.ceil(math.log(numFaults,2)))
@@ -281,8 +281,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 client_command = f"singularity exec {sing_file} ./client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 ssh_command = f"ssh -i {node['key']} {node['user']}@{node['host']} '{client_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                procsCl.append((n, i, node, proc))
-                print(f"Client {n} started on {node['host']}")
+                procsCl.append((currentInstance, instanceName, node, proc))
+                print(f"Client {currentInstance} started on {node['host']}")
                 instanceClIds.append((currentInstance, instanceName, node))
 
 
