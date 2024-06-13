@@ -200,8 +200,8 @@ pnet(pec,pconf), cnet(cec,cconf), distribution(0.0f, 1.0f) {
   std::time_t time = std::chrono::system_clock::to_time_t(timeNow);
   struct tm y2k = {0};
   double seconds = difftime(time,mktime(&y2k));
-  statsVals = "stats/vals-" + std::to_string(this->myid) + "-" + std::to_string(seconds);
-  statsDone = "stats/done-" + std::to_string(this->myid) + "-" + std::to_string(seconds);
+  statsVals = "/app/stats/vals-" + std::to_string(this->myid) + "-" + std::to_string(seconds);
+  statsDone = "/app/stats/done-" + std::to_string(this->myid) + "-" + std::to_string(seconds);
   stats.setId(this->myid);
 
   auto pshutdown = [&](int) {pec.stop();};

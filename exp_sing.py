@@ -208,6 +208,11 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     # Generate configuration now that all IPs are collected
     genLocalConf(numReps, addresses)  # Make sure to use the actual filename needed
 
+    config_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config"
+    stats_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/stats"
+    bind_config = f"--bind {config_dir}:/app/config"
+    bind_stats = f"--bind {stats_dir}:/app/stats"
+
     currentInstance = 0
     for node in nodes:
         instancesPerNode = totalInstances // len(nodes) + (totalInstances % len(nodes) > 0)
@@ -220,8 +225,10 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             # ipsOfNodes[currentInstance] = ip
 
             if instanceType == "replica":
+                server_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                
                 #server_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
-                server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                #server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsRep.append((currentInstance, instanceName, node, proc))
@@ -230,8 +237,10 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             else:
                 wait = 5 + int(math.ceil(math.log(numFaults,2)))
                 time.sleep(wait)
+                client_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                
                 #client_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
-                client_command = f"singularity exec {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                #client_command = f"singularity exec {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{client_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsCl.append((currentInstance, instanceName, node, proc))
@@ -286,6 +295,12 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
 
     mkParams(protocol,constFactor,numFaults,numTrans,payloadSize)
 
+    params_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App/params.h"
+
+    #compile_command = f"singularity exec {sing_file} make -C /app server client"
+    compile_command = f"singularity exec --bind {params_dir}:/app/App/params.h {sing_file} make -C /app server client"
+    subprocess.run(compile_command, shell=True)
+
     # The rest of your logic for setting up and executing the experiment
     for instance in range(repeats):
         clearStatsDir()  # Clear any existing data
@@ -293,10 +308,7 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
         #executeClusterInstances(instanceRepIds, instanceClIds, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
         results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
         print("Results:", results)
-    
-    #for (n, i, node) in instanceRepIds + instanceClIds:
-     #   sshCmd = f"ssh {node['user']}@{node['host']} 'cleanup_command'"
-      #  subprocess.run(sshCmd, shell=True)
+
 # End of executeCluster
 
 def get_host_ips(hostnames):
@@ -315,7 +327,6 @@ def runCluster():
     printNodePointParams()
 
     hostnames = subprocess.check_output('scontrol show hostname $SLURM_JOB_NODELIST', shell=True).decode().strip().split()
-    #nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/parahs-test', 'key': '/home/aeinarsd/id_rsa.parahs'} for hostname in hostnames]
     nodes = [{'node': hostname, 'user': os.getenv('USER'), 'host': hostname, 'dir': '/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff'} for hostname in hostnames]
 
     for numFaults in faults:

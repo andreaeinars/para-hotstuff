@@ -120,7 +120,7 @@ int main(int argc, char const *argv[]) {
 #endif
 
   unsigned int numNodes = (constFactor*numFaults)+1;
-  std::string confFile = "config";
+  std::string confFile = "/app/config";
   Nodes nodes(confFile,numNodes);
 
   // -- Public keys

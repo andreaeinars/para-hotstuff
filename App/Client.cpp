@@ -341,8 +341,21 @@ int main(int argc, char const *argv[]) {
 
   numNodes = (constFactor*numFaults)+1;
   qsize = numNodes-numFaults;
-  std::string confFile = "config";
+  std::string confFile = "/app/config";
   Nodes nodes(confFile,numNodes);
+
+  
+  std::ifstream inFile(confFile);
+  if (inFile.is_open()) {
+        std::cout << "Successfully opened config file: " << confFile << std::endl;
+        // Further processing here
+        inFile.close();
+    } else {
+        std::cerr << "Failed to open config file: " << confFile << std::endl;
+        // Handle the error, e.g., fallback, retry, or exit
+  }
+
+
 
   // -- Stats
   auto timeNow = std::chrono::system_clock::now();
@@ -350,8 +363,8 @@ int main(int argc, char const *argv[]) {
   struct tm y2k = {0};
   double seconds = difftime(time,mktime(&y2k));
   std::string stamp = std::to_string(inst) + "-" + std::to_string(cid) + "-" + std::to_string(seconds);
-  statsThroughputLatency = "stats/client-throughput-latency-" + stamp;
-  debugThroughputLatency = "stats/debug-client-throughput-latency";
+  statsThroughputLatency = "/app/stats/client-throughput-latency-" + stamp;
+  debugThroughputLatency = "/app/stats/debug-client-throughput-latency";
 
   // -- Public keys
   for (unsigned int i = 0; i < numNodes; i++) {
