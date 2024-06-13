@@ -32,11 +32,11 @@ run: all
 ######## App Objects ########
 
 server: App/Server.o $(App_Cpp_Objects) 
-	@$(CXX) $^ -o $@ $(App_Link_Flags) $(Salticidae_Include_Paths)
+	@$(CXX) $^ -o /app/App/server $(App_Link_Flags) $(Salticidae_Include_Paths)
 	@echo "LINK => $@"
 
 client: App/Client.o App/utils/Stats.o App/utils/Signs.o App/utils/Sign.o App/utils/Nodes.o App/utils/NodeInfo.o App/utils/KeysFun.o App/utils/Transaction.o
-	@$(CXX) $^ -o $@ $(App_Link_Flags) $(Salticidae_Include_Paths)
+	@$(CXX) $^ -o /app/App/client $(App_Link_Flags) $(Salticidae_Include_Paths)
 	@echo "LINK => $@"
 
 keys: App/utils/Keys.o App/utils/KeysFun.o 

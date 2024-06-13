@@ -225,7 +225,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             # ipsOfNodes[currentInstance] = ip
 
             if instanceType == "replica":
-                server_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                server_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/App/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 
                 #server_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 #server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
@@ -237,7 +237,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             else:
                 wait = 5 + int(math.ceil(math.log(numFaults,2)))
                 time.sleep(wait)
-                client_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                client_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/App/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 
                 #client_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 #client_command = f"singularity exec {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
@@ -298,7 +298,9 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     params_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App/params.h"
 
     #compile_command = f"singularity exec {sing_file} make -C /app server client"
-    compile_command = f"singularity exec --bind {params_dir}:/app/App/params.h {sing_file} make -C /app server client"
+    print("NOW GOING TO MAKE")
+    #compile_command = f"singularity exec --bind {params_dir}:/app/App/params.h {sing_file} make -C /app server client"
+    compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} make -C /app server client"
     subprocess.run(compile_command, shell=True)
 
     # The rest of your logic for setting up and executing the experiment
