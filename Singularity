@@ -30,11 +30,11 @@ From: ubuntu:20.04
     make server client keys
 
 %files
-    Makefile /app
-    experiments.py /app
-    App /app/App
-    config /app/config
-    salticidae /app/salticidae
+    /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/Makefile /app
+    /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/experiments.py /app
+    /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App /app/App
+    /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config /app/config
+    /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/salticidae /app/salticidae
 
 %environment
     export DEBIAN_FRONTEND=noninteractive
