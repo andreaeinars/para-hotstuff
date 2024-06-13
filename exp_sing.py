@@ -220,7 +220,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             # ipsOfNodes[currentInstance] = ip
 
             if instanceType == "replica":
-                server_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                #server_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsRep.append((currentInstance, instanceName, node, proc))
@@ -229,7 +230,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             else:
                 wait = 5 + int(math.ceil(math.log(numFaults,2)))
                 time.sleep(wait)
-                client_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                #client_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                client_command = f"singularity exec {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{client_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsCl.append((currentInstance, instanceName, node, proc))
