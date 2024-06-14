@@ -187,8 +187,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     procsRep   = []
     procsCl    = []
-    #newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
-    newtimeout = 300
+    newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
+    #newtimeout = 300
 
     currentInstance = 0
     for node in nodes:
@@ -222,15 +222,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 break
             instanceType = "replica" if currentInstance < numReps else "client"
             instanceName = f"instance_{node['node']}_{i}"
-            # ip = node['host'] 
-            # ipsOfNodes[currentInstance] = ip
-            #check_command = f"singularity exec {sing_file} ls /app/App"
-            #subprocess.run(check_command, shell=True)
             if instanceType == "replica":
                 server_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
-                
-                #server_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
-                #server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsRep.append((currentInstance, instanceName, node, proc))
@@ -240,9 +233,6 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 wait = 5 + int(math.ceil(math.log(numFaults,2)))
                 time.sleep(wait)
                 client_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
-                
-                #client_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
-                #client_command = f"singularity exec {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{client_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 procsCl.append((currentInstance, instanceName, node, proc))
@@ -250,24 +240,23 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 instanceClIds.append((currentInstance, instanceName, node))
             currentInstance += 1
 
-    # genLocalConf(numReps,addresses)
-
     print("started", len(procsRep), "replicas")
     print("started", len(procsCl), "clients")
 
     totalTime = 0
-    #time.sleep(300); 
+    time.sleep(300); 
     remaining = procsRep + procsCl
     while remaining and totalTime < cutOffBound:
         for p in remaining:
             n, i, node, proc = p
-            print_output(proc, node['host'])
+            print_output(proc, i)
             if proc.poll() is None:
                 if totalTime >= newtimeout:  # Custom logic to decide when to stop waiting
                     proc.terminate()  # Forcefully terminate if over timeout
-                    print(f"Timeout reached: Terminated node {node['host']}")
+                    print(f"Timeout reached: Terminated node {i}")
             else:
-                print(f"Node {node['host']} has completed")
+                # print(f"Node {node['host']} has completed")
+                print(f"Node {i} has completed")
                 remaining.remove(p)  # Process has completed
         time.sleep(1)
         totalTime += 1
@@ -279,7 +268,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             print_output(proc, node['host'])
             proc.terminate()
             proc.wait()
-            print(f"Cleanup: Forced termination at node {n}")
+            print(f"Cleanup: Forced termination at node {i}")
 
     return instanceRepIds, instanceClIds
 # # End of executeClusterInstances
