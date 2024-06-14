@@ -10,6 +10,7 @@ import argparse
 from enum import Enum
 import re
 # import json
+import sys
 import select
 
 from exp_params import *
@@ -170,13 +171,25 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
             results["crypto-num-sign"], results["crypto-num-verif"],results["client-throughput-view"], 
             results["client-latency-view"], results["client-num-instances"])
 
+# def print_output(proc, name):
+#     """ Helper function to check and print output from a non-blocking read """
+#     readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
+#     for r in readable:
+#         line = r.readline()
+#         if line:
+#             print(f"Output from {name}: {line.decode().strip()}")
+
 def print_output(proc, name):
-    """ Helper function to check and print output from a non-blocking read """
-    readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
-    for r in readable:
-        line = r.readline()
-        if line:
-            print(f"Output from {name}: {line.decode().strip()}")
+    """ Continuously reads and prints output from a subprocess """
+    try:
+        for line in iter(proc.stdout.readline, b''):  # Continue reading until stream is empty
+            if line:  # Only print if line is not empty
+                print(f"Output from {name}: {line.decode().strip()}")
+        for line in iter(proc.stderr.readline, b''):
+            if line:
+                print(f"Error from {name}: {line.decode().strip()}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error reading output from {name}: {e}")
 
 def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
     totalInstances = numReps + numClients
@@ -199,10 +212,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             instanceType = "replica" if currentInstance < numReps else "client"
             instanceName = f"instance_{node['node']}_{i}"
             ip = node['host']
-
             if instanceType == "replica":
                 ipsOfNodes[currentInstance] = ip  # Store IP only for replicas if that's all genLocalConf needs
-
             currentInstance += 1
 
     # Generate configuration now that all IPs are collected
@@ -247,11 +258,12 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     time.sleep(300); 
     remaining = procsRep + procsCl
     while remaining and totalTime < cutOffBound:
+        print(f"Time elapsed: {totalTime} seconds")
         for p in remaining:
             n, i, node, proc = p
             print_output(proc, i)
             if proc.poll() is None:
-                if totalTime >= newtimeout:  # Custom logic to decide when to stop waiting
+                if totalTime >= cutOffBound:  # Custom logic to decide when to stop waiting
                     proc.terminate()  # Forcefully terminate if over timeout
                     print(f"Timeout reached: Terminated node {i}")
             else:
@@ -261,7 +273,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
         time.sleep(1)
         totalTime += 1
 
-    print("All processes completed within the time limit.")
+    print("All processes completed.")
 
     for n, i, node, proc in procsRep + procsCl:
         if proc.poll() is None:
