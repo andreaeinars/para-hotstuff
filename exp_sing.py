@@ -212,6 +212,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     stats_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/stats"
     bind_config = f"--bind {config_dir}:/app/config"
     bind_stats = f"--bind {stats_dir}:/app/stats"
+    bind_app = "--bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App"
 
     currentInstance = 0
     for node in nodes:
@@ -223,9 +224,10 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             instanceName = f"instance_{node['node']}_{i}"
             # ip = node['host'] 
             # ipsOfNodes[currentInstance] = ip
-
+            #check_command = f"singularity exec {sing_file} ls /app/App"
+            #subprocess.run(check_command, shell=True)
             if instanceType == "replica":
-                server_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/App/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
+                server_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 
                 #server_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 #server_command = f"singularity exec {sing_file} /app/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
@@ -237,7 +239,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             else:
                 wait = 5 + int(math.ceil(math.log(numFaults,2)))
                 time.sleep(wait)
-                client_command = f"singularity exec {bind_config} {bind_stats} {sing_file} /app/App/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
+                client_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 
                 #client_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/config:/app/config {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 #client_command = f"singularity exec {sing_file} /app/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
@@ -300,7 +302,9 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     #compile_command = f"singularity exec {sing_file} make -C /app server client"
     print("NOW GOING TO MAKE")
     #compile_command = f"singularity exec --bind {params_dir}:/app/App/params.h {sing_file} make -C /app server client"
-    compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} make -C /app server client"
+    #compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} 'ls -la /app/App && make -C /app server client'"
+    compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} bash -c 'make -C /app server client'"
+
     subprocess.run(compile_command, shell=True)
 
     # The rest of your logic for setting up and executing the experiment

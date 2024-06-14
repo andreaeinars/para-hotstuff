@@ -15,3 +15,7 @@ id_rsa.parahs
 id_rsa.parahs.pub
 tst.py
 para-hotstuff.sif
+slurm*
+*.o
+App/client
+App/server
