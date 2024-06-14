@@ -171,25 +171,23 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
             results["crypto-num-sign"], results["crypto-num-verif"],results["client-throughput-view"], 
             results["client-latency-view"], results["client-num-instances"])
 
-# def print_output(proc, name):
-#     """ Helper function to check and print output from a non-blocking read """
-#     readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
-#     for r in readable:
-#         line = r.readline()
-#         if line:
-#             print(f"Output from {name}: {line.decode().strip()}")
-
 def print_output(proc, name):
-    """ Continuously reads and prints output from a subprocess """
+    """ Helper function to check and print output from a non-blocking read """
     try:
-        for line in iter(proc.stdout.readline, b''):  # Continue reading until stream is empty
-            if line:  # Only print if line is not empty
-                print(f"Output from {name}: {line.decode().strip()}")
-        for line in iter(proc.stderr.readline, b''):
-            if line:
-                print(f"Error from {name}: {line.decode().strip()}", file=sys.stderr)
-    except Exception as e:
-        print(f"Error reading output from {name}: {e}")
+        fd_stdout = proc.stdout.fileno()
+        fd_stderr = proc.stderr.fileno()
+        os.set_blocking(fd_stdout, False)
+        os.set_blocking(fd_stderr, False)
+        while True:
+            readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
+            if not readable:
+                break
+            for r in readable:
+                data = os.read(r.fileno(), 2048)
+                if data:
+                    print(f"Output from {name}: {data.decode().strip()}")
+    except:
+        print("Print ERROR")
 
 def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
     totalInstances = numReps + numClients
@@ -255,29 +253,29 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     print("started", len(procsCl), "clients")
 
     totalTime = 0
-    time.sleep(300); 
-    remaining = procsRep + procsCl
+    cutOffBound = 60
+    remaining = procsRep.copy() + procsCl.copy()
+
     while remaining and totalTime < cutOffBound:
         print(f"Time elapsed: {totalTime} seconds")
         for p in remaining:
             n, i, node, proc = p
             print_output(proc, i)
-            if proc.poll() is None:
-                if totalTime >= cutOffBound:  # Custom logic to decide when to stop waiting
-                    proc.terminate()  # Forcefully terminate if over timeout
-                    print(f"Timeout reached: Terminated node {i}")
-            else:
-                # print(f"Node {node['host']} has completed")
+            if proc.poll() is not None:
                 print(f"Node {i} has completed")
-                remaining.remove(p)  # Process has completed
+                remaining.remove(p)
+
         time.sleep(1)
         totalTime += 1
+
+    if totalTime >= cutOffBound:
+        print("Timeout reached. Terminating all processes.")
 
     print("All processes completed.")
 
     for n, i, node, proc in procsRep + procsCl:
         if proc.poll() is None:
-            print_output(proc, node['host'])
+            print_output(proc, i)
             proc.terminate()
             proc.wait()
             print(f"Cleanup: Forced termination at node {i}")
@@ -299,12 +297,8 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     mkParams(protocol,constFactor,numFaults,numTrans,payloadSize)
 
     params_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App/params.h"
-
-    #compile_command = f"singularity exec {sing_file} make -C /app server client"
     print("NOW GOING TO MAKE")
-    #compile_command = f"singularity exec --bind {params_dir}:/app/App/params.h {sing_file} make -C /app server client"
-    #compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} 'ls -la /app/App && make -C /app server client'"
-    compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} bash -c 'make -C /app server client'"
+    compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} bash -c 'ls /app/App && make -C /app server client'"
 
     subprocess.run(compile_command, shell=True)
 
