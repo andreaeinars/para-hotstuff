@@ -171,24 +171,57 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
             results["crypto-num-sign"], results["crypto-num-verif"],results["client-throughput-view"], 
             results["client-latency-view"], results["client-num-instances"])
 
-def print_output(proc, name):
-    """ Helper function to check and print output from a non-blocking read """
-    try:
+#def print_output(proc, name):
+#    """ Helper function to check and print output from a non-blocking read """
+#    try:
         #fd_stdout = proc.stdout.fileno()
         #fd_stderr = proc.stderr.fileno()
         #os.set_blocking(fd_stdout, False)
         #os.set_blocking(fd_stderr, False)
-        while True:
-            readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
-            if not readable:
-                break
-            for r in readable:
-                data = os.read(r.fileno(), 1024)
+ #       while True:
+  #          readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
+   #         if not readable:
+    #            break
+    #        for r in readable:
+    #            data = os.read(r.fileno(), 1024)
+    #            if data:
+    #                print(f"Output from {name}: {data.decode().strip()}")
+    #                sys.stdout.flush()
+   # except:
+   #     print("Print ERROR")
+   #     sys.stdout.flush()
+
+def print_output(proc, name):
+    """ Helper function to check and print output from a non-blocking read """
+    try:
+        fd_stdout = proc.stdout.fileno()
+        fd_stderr = proc.stderr.fileno()
+        os.set_blocking(fd_stdout, False)
+        os.set_blocking(fd_stderr, False)
+
+        try:
+            while True:
+                data = os.read(fd_stdout, 1024)
                 if data:
-                    print(f"Output from {name}: {data.decode().strip()}")
+                    print(f"Output from {name} (stdout): {data.decode().strip()}")
                     sys.stdout.flush()
-    except:
-        print("Print ERROR")
+                else:
+                    break
+        except BlockingIOError:
+            pass  # No more data to read from stdout
+
+        try:
+            while True:
+                data = os.read(fd_stderr, 1024)
+                if data:
+                    print(f"Output from {name} (stderr): {data.decode().strip()}")
+                    sys.stdout.flush()
+                else:
+                    break
+        except BlockingIOError:
+            pass  # No more data to read from stderr
+    except Exception as e:
+        print(f"Print ERROR from {name}: {e}")
         sys.stdout.flush()
 
 def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
@@ -256,9 +289,9 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     print("started", len(procsCl), "clients")
 
     totalTime = 0
-    cutOffBound = 60
+    cutOffBound = 200
     remaining = procsRep.copy()
-
+    #time.sleep(10)
     while remaining and totalTime < cutOffBound:
         print(f"Time elapsed: {totalTime} seconds")
         sys.stdout.flush()
@@ -269,6 +302,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 print(f"Node {i} has completed")
                 sys.stdout.flush()
                 remaining.remove(p)
+            #else:
+             #   print_output(proc,i)
 
         time.sleep(1)
         totalTime += 1
@@ -305,7 +340,7 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     params_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App/params.h"
     print("NOW GOING TO MAKE")
     sys.stdout.flush()
-    compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} bash -c 'ls /app/App && make -C /app server client'"
+    compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} bash -c 'ls /app/App && make -C /app clean && make -C /app server client'"
 
     subprocess.run(compile_command, shell=True)
 
@@ -374,7 +409,7 @@ parser.add_argument("--dir", type=str, default="stats", help="Maximum number of 
 parser.add_argument("--forceRecover", type=float, default=0, help="Maximum number of blocks in each view for Parallel HotStuff")
 parser.add_argument("--crash", type=float, default=0, help="Amount of crashes")
 parser.add_argument("--byzantine", type=int, default=-1, help="Byzantine nodes")
-parser.add_argument("--timeout", type=int, default=5, help="Timeout for leader change")
+parser.add_argument("--timeout", type=int, default=20, help="Timeout for leader change")
 parser.add_argument("--numclients", type=int, default=1, help="Number of clients for basic")
 parser.add_argument("--numclientsch", type=int, default=1, help="Number of clients for chained")
 parser.add_argument("--sleeptime", type=int, default=0, help="Sleep between transactions clients")

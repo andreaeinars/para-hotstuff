@@ -1288,6 +1288,10 @@ void Handler::handleNewviewCh(MsgNewViewCh msg) {
   // and sends this proposal in a PREPARE message
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
+    if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
+    return;
+  }
   Hash   hashP = msg.data.getProph();
   View   viewP = msg.data.getPropv();
   Phase1 ph    = msg.data.getPhase();
@@ -1322,7 +1326,10 @@ void Handler::handle_newview_ch(MsgNewViewCh msg, const PeerNet::conn_t &conn) {
 void Handler::handleLdrPrepareCh(MsgLdrPrepareCh msg) { // Run by the backups in the prepare phase
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling(view=" << this->view << "):" << msg.prettyPrint() << KNRM << std::endl;
-
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
+    if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
+    return;
+  }
   JBlock block = msg.block;
   Sign sign    = msg.sign;
   View v       = block.getView();
@@ -1360,7 +1367,10 @@ void Handler::handle_ldrprepare_ch(MsgLdrPrepareCh msg, const PeerNet::conn_t &c
 void Handler::handlePrepareCh(MsgPrepareCh msg) { // For the leader of view this->view+1 to handle votes
   auto start = std::chrono::steady_clock::now();
   if (DEBUG1) std::cout << KBLU << nfo() << "handling:" << msg.prettyPrint() << KNRM << std::endl;
-
+  if (this->maxViews > 0 && this->view >= this->maxViews) {
+    if (DEBUG) std::cout << KBLU << nfo() << "max views reached" << KNRM << std::endl;
+    return;
+  }
   RData data = msg.data;
   View v = data.getPropv();
   if (v == this->view) {
