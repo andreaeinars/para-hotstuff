@@ -16,13 +16,13 @@
 #include <openssl/rsa.h>
 #include <openssl/rand.h>
 
-#include "utils/Message.h"
-#include "utils/RData.h"
-#include "utils/RDataPara.h"
-#include "utils/Signs.h"
-#include "utils/Nodes.h"
-#include "utils/KeysFun.h"
-#include "handlers/Handler.h"
+#include "Message.h"
+#include "RData.h"
+#include "RDataPara.h"
+#include "Signs.h"
+#include "Nodes.h"
+#include "KeysFun.h"
+#include "Handler.h"
 #include <csignal>
 #include <atomic>
 

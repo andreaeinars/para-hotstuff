@@ -9,9 +9,7 @@ LDLIBS = `pkg-config --libs   libcrypto openssl libuv` #-lgmp # gio-2.0 openssl
 
 ######## App Settings ########
 
-App_Cpp_Files := $(wildcard App/*.cpp) \
-				 $(wildcard App/utils/*.cpp) \
-				 $(wildcard App/handlers/*.cpp) 
+App_Cpp_Files := $(wildcard App/*.cpp) 
 App_Cpp_Files := $(filter-out App/Client.cpp App/Server.cpp, $(App_Cpp_Files))
 App_Include_Paths := -IApp $(Salticidae_Include_Paths)
 
@@ -35,15 +33,15 @@ server: App/Server.o $(App_Cpp_Objects)
 	@$(CXX) $^ -o /app/App/server $(App_Link_Flags) $(Salticidae_Include_Paths)
 	@echo "LINK => $@"
 
-client: App/Client.o App/utils/Stats.o App/utils/Signs.o App/utils/Sign.o App/utils/Nodes.o App/utils/NodeInfo.o App/utils/KeysFun.o App/utils/Transaction.o
+client: App/Client.o App/Stats.o App/Signs.o App/Sign.o App/Nodes.o App/NodeInfo.o App/KeysFun.o App/Transaction.o
 	@$(CXX) $^ -o /app/App/client $(App_Link_Flags) $(Salticidae_Include_Paths)
 	@echo "LINK => $@"
 
-keys: App/utils/Keys.o App/utils/KeysFun.o 
+keys: App/Keys.o App/KeysFun.o 
 	@$(CXX) $^ -o $@ $(App_Link_Flags) $(Salticidae_Include_Paths)
 	@echo "LINK => $@"
 
-App/%.o: App/%.cpp
+App/%.o: App/%.cpp App/%.h App/params.h
 	@$(CXX) $(App_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
@@ -54,4 +52,6 @@ $(App_Name): $(App_Cpp_Objects)
 .PHONY: clean
 
 clean:
-	@rm -f $(App_Name) $(App_Cpp_Objects)
+	@rm -f $(App_Name) $(App_Cpp_Objects) /app/App/server /app/App/client 
+	@echo "CLEAN => Done"
+

@@ -9,7 +9,7 @@
 #include <fstream>
 #include <chrono>
 
-#include "utils/Message.h"
+#include "Message.h"
 
 // Salticidae related stuff
 #include "salticidae/msg.h"

@@ -4,14 +4,14 @@
 #include <map>
 #include <set>
 
-#include "utils/Message.h"
-#include "utils/Nodes.h"
-#include "utils/Log.h"
-#include "utils/Stats.h"
-#include "utils/user_types.h"
-#include "utils/TrustedFun.h"
-#include "utils/TrustedCh.h"
-#include "utils/TrustedPara.h"
+#include "Message.h"
+#include "Nodes.h"
+#include "Log.h"
+#include "Stats.h"
+#include "user_types.h"
+#include "TrustedFun.h"
+#include "TrustedCh.h"
+#include "TrustedPara.h"
 // Salticidae related stuff
 #include <memory>
 #include <cstdio>

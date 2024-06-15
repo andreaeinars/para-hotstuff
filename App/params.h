@@ -6,5 +6,6 @@
 #define MAX_NUM_SIGNATURES 5
 #define MAX_NUM_TRANSACTIONS 100
 #define PAYLOAD_SIZE 0
+#define MAX_BLOCKS_IN_VIEW 1
 
 #endif

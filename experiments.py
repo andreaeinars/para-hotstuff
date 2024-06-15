@@ -220,8 +220,8 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
             dst = dockerInstance + ":/app/"
             subprocess.run([docker + " cp " + addresses + " " + dst], shell=True, check=True)
 
-    server = "./server"
-    client = "./client"
+    server = "./App/server"
+    client = "./App/client"
 
     newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
     # starting severs
