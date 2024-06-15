@@ -174,20 +174,22 @@ def computeStats(protocol, numFaults, instance, repeats, maxBlocksInView=0):
 def print_output(proc, name):
     """ Helper function to check and print output from a non-blocking read """
     try:
-        fd_stdout = proc.stdout.fileno()
-        fd_stderr = proc.stderr.fileno()
-        os.set_blocking(fd_stdout, False)
-        os.set_blocking(fd_stderr, False)
+        #fd_stdout = proc.stdout.fileno()
+        #fd_stderr = proc.stderr.fileno()
+        #os.set_blocking(fd_stdout, False)
+        #os.set_blocking(fd_stderr, False)
         while True:
             readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0)
             if not readable:
                 break
             for r in readable:
-                data = os.read(r.fileno(), 2048)
+                data = os.read(r.fileno(), 1024)
                 if data:
                     print(f"Output from {name}: {data.decode().strip()}")
+                    sys.stdout.flush()
     except:
         print("Print ERROR")
+        sys.stdout.flush()
 
 def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
     totalInstances = numReps + numClients
@@ -248,21 +250,24 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 print(f"Client {currentInstance} started on {node['host']}")
                 instanceClIds.append((currentInstance, instanceName, node))
             currentInstance += 1
+            sys.stdout.flush()
 
     print("started", len(procsRep), "replicas")
     print("started", len(procsCl), "clients")
 
     totalTime = 0
     cutOffBound = 60
-    remaining = procsRep.copy() + procsCl.copy()
+    remaining = procsRep.copy()
 
     while remaining and totalTime < cutOffBound:
         print(f"Time elapsed: {totalTime} seconds")
-        for p in remaining:
+        sys.stdout.flush()
+        for p in remaining.copy():
             n, i, node, proc = p
             print_output(proc, i)
             if proc.poll() is not None:
                 print(f"Node {i} has completed")
+                sys.stdout.flush()
                 remaining.remove(p)
 
         time.sleep(1)
@@ -272,13 +277,14 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
         print("Timeout reached. Terminating all processes.")
 
     print("All processes completed.")
-
-    for n, i, node, proc in procsRep + procsCl:
+    sys.stdout.flush()
+    for n, i, node, proc in procsRep.copy() + procsCl.copy():
         if proc.poll() is None:
             print_output(proc, i)
             proc.terminate()
             proc.wait()
             print(f"Cleanup: Forced termination at node {i}")
+            sys.stdout.flush()
 
     return instanceRepIds, instanceClIds
 # # End of executeClusterInstances
@@ -298,6 +304,7 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
 
     params_dir = "/home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App/params.h"
     print("NOW GOING TO MAKE")
+    sys.stdout.flush()
     compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} bash -c 'ls /app/App && make -C /app server client'"
 
     subprocess.run(compile_command, shell=True)
