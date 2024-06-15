@@ -372,11 +372,12 @@ struct MsgVerifyPara { // TODO: Actually implement this
   // This message is only for leader and includes a list of block hashes and a QC
   MsgVerifyPara(const RDataPara &rdata, const Signs &signs, const std::vector<Hash> &blockHashes)
     : rdata(rdata), signs(signs), blockHashes(blockHashes) {
-    serialized << rdata << signs;
-    serialized << static_cast<uint64_t>(blockHashes.size()); // Serialize the size of the vector
-    for (const auto &hash : blockHashes) {
-      serialized << hash; // Serialize each Hash object
-    }
+    serialize(serialized); 
+    //serialized << rdata << signs;
+    //serialized << static_cast<uint64_t>(blockHashes.size()); // Serialize the size of the vector
+    //for (const auto &hash : blockHashes) {
+    //  serialized << hash; // Serialize each Hash object
+    //}
   }
   MsgVerifyPara(salticidae::DataStream &&s) {
     s >> rdata >> signs;
@@ -418,11 +419,16 @@ struct MsgVerifyPara { // TODO: Actually implement this
     return size;
   }
   void serialize(salticidae::DataStream &s) const {
+    if (DEBUG) std::cout << "Entering MsgVerifyPara::serialize" << std::endl;
     s << rdata << signs;
+    if (DEBUG) std::cout << "After signs" << std::endl;
     s << static_cast<uint64_t>(blockHashes.size()); // Serialize the size of the vector
+    if (DEBUG) std::cout << "After blockhashes size" << std::endl;
     for (const auto &hash : blockHashes) {
       s << hash; // Serialize each Hash object
+      if (DEBUG) std::cout << "after one hash" << std::endl;
     }
+    if (DEBUG){std::cout << "Serialized MsgVerifyPara: " << const_cast<MsgVerifyPara*>(this)->prettyPrint()  << std::endl;}
   }
 };
 

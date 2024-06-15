@@ -1,5 +1,7 @@
 #include <fstream>
 #include "Handler.h"
+//#include <sstream>
+//#include <iomanip>
 
 std::mutex mu_trans;
 Time startTime = std::chrono::steady_clock::now();
@@ -186,6 +188,7 @@ pnet(pec,pconf), cnet(cec,cconf), distribution(0.0f, 1.0f) {
     this->pnet.reg_handler(salticidae::generic_bind(&Handler::handle_recover_para, this, _1, _2));
     this->pnet.reg_handler(salticidae::generic_bind(&Handler::handle_ldrrecover_para, this, _1, _2));
     this->pnet.reg_handler(salticidae::generic_bind(&Handler::handle_verify_para, this, _1, _2));
+    if (DEBUG1) { std::cout << KBLU << nfo() << "regiisterd handle verify now" << KNRM << std::endl; }
     this->pnet.reg_handler(salticidae::generic_bind(&Handler::handle_prepare_para, this, _1, _2));
     this->pnet.reg_handler(salticidae::generic_bind(&Handler::handle_ldrprepare_para, this, _1, _2));
     this->pnet.reg_handler(salticidae::generic_bind(&Handler::handle_precommit_para, this, _1, _2));
@@ -466,10 +469,12 @@ Peers Handler::keep_from_peers(PID id) {
 
 std::vector<salticidae::PeerId> getPeerids(Peers recipients) {
   std::vector<salticidae::PeerId> ret;
+  if (DEBUG) std::cout << KBLU << "In get peers"<< KNRM << std::endl;
   for (Peers::iterator it = recipients.begin(); it != recipients.end(); ++it) {
     Peer peer = *it;
     ret.push_back(std::get<1>(peer));
   }
+  if (DEBUG) std::cout << KBLU << "return in getpeers "<< KNRM << std::endl;
   return ret;
 }
 
@@ -1421,9 +1426,50 @@ void Handler::sendMsgLdrRecoverPara(MsgLdrRecoverPara msg, Peers recipients) {
   this->pnet.multicast_msg(msg, getPeerids(recipients));
 }
 
+//std::string peerIdToString(const salticidae::PeerId &peerId) {
+ //   std::ostringstream oss;
+  //  oss << std::hex;
+   // for (size_t i = 0; i < sizeof(peerId); ++i) {
+  //      oss << std::setw(2) << std::setfill('0') << (int)((const uint8_t*)&peerId)[i];
+  //  }
+   // return oss.str();
+//}
+
 void Handler::sendMsgVerifyPara(MsgVerifyPara msg, Peers recipients) {
   if (DEBUG1) std::cout << KBLU << nfo() << "sending:" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  std::vector<salticidae::PeerId> peerIds = getPeerids(recipients);
+
+    // Print the PeerIds
+  if (DEBUG1) {
+    std::cout << "PeerIds: ";
+    for (const auto &peerId : peerIds) {
+      std::cout << " PEER " << std::endl;  // Assuming PeerId has a suitable output operator
+      auto conn = this->pnet.get_peer_conn(peerId);
+            if (conn == nullptr) {
+                std::cout << KRED << nfo() << "Peer not connected: " << KNRM << std::endl;
+            } else {
+                std::cout << KBLU << nfo() << "Peer connected: " << KNRM << std::endl;
+            }
+    }
+    //std::cout << std::endl;
+  }
+  if (DEBUG) std::cout << KBLU << nfo() << "NOW going to send verify "<< KNRM << std::endl;
+  if (DEBUG) std::cout << KBLU << nfo() << "MESSAGE contents "<< KNRM << std::endl;
+  if (DEBUG) std::cout << KBLU << nfo()<< "RData: " << msg.rdata.prettyPrint() << std::endl;
+  if (DEBUG) std::cout << KBLU << nfo() << "Signs: " << msg.signs.prettyPrint() << std::endl;
+  if (DEBUG) std::cout << KBLU << nfo()<< "Block Hashes: ";
+  //for (const auto &hash : msg.blockHashes) {
+    // if (DEBUG) std::cout << hash.prettyPrint() << " ";
+  //}
+  std::cout << std::endl;
+  //this->pnet.multicast_msg(msg, getPeerids(recipients));
+  int32_t result = this->pnet.multicast_msg(msg, peerIds);
+  if (result != 0) {
+        std::cerr << KRED << nfo() << "Error in multicast_msg: " << result << KNRM << std::endl;
+  } else {
+        if (DEBUG1) std::cout << KBLU << nfo() << "NO ERROR" << KNRM << std::endl;
+  }
+  if (DEBUG1) std::cout << KBLU << nfo() << "AFTER SENDING VERIFY" << KNRM << std::endl;
 }
 
 void Handler::sendMsgPreparePara(MsgPreparePara msg, Peers recipients) {
@@ -1434,7 +1480,14 @@ void Handler::sendMsgPreparePara(MsgPreparePara msg, Peers recipients) {
 
 void Handler::sendMsgLdrPreparePara(MsgLdrPreparePara msg, Peers recipients) {
   if (DEBUG1) std::cout << KBLU << nfo() << "sending(" << sizeof(msg) << "-" << sizeof(MsgLdrPrepare) << "):" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
-  this->pnet.multicast_msg(msg, getPeerids(recipients));
+  int32_t result = this->pnet.multicast_msg(msg, getPeerids(recipients));
+  if (result != 0) {
+        std::cerr << KRED << nfo() << "Error in LDRPREP multicast_msg: " << result << KNRM << std::endl;
+  } else {
+        if (DEBUG1) std::cout << KBLU << nfo() << "NO ERROR" << KNRM << std::endl;
+  }
+  if (DEBUG1) std::cout << KBLU << nfo() << "AFTER SENDING LDRPREPARE" << KNRM << std::endl;  
+  //this->pnet.multicast_msg(msg, getPeerids(recipients));
   if (DEBUGT) printNowTime("sending MsgLdrPreparePara");
 }
 
@@ -1506,8 +1559,11 @@ void Handler::initiateVerifyPara(Just just){
 
   MsgVerifyPara msgVerify(just.getRDataPara(), just.getSigns(), hashes);
   Peers recipients = remove_from_peers(this->myid);
+  if (DEBUG) std::cout << KBLU << nfo() << "BEFORE verify function "<< KNRM << std::endl;
   sendMsgVerifyPara(msgVerify, recipients);
+  if (DEBUG) std::cout << KBLU << nfo() << "AFTER verify function "<< KNRM << std::endl;
   preparePara(just);
+  if (DEBUG) std::cout << KBLU << nfo() << "AFTER SENDING prep "<< KNRM << std::endl;
 }
 
 void Handler::preparePara(Just just) { // For leader to do begin a view (prepare phase)
@@ -1527,6 +1583,7 @@ void Handler::preparePara(Just just) { // For leader to do begin a view (prepare
   }
 
   for (i; i <= maxBlocksInView; ++i) {
+    if (DEBUG) std::cout << KBLU << nfo() << "starting sending block "<< KNRM << std::endl;
     PBlock block = createNewBlockPara(prevHash);
     this->localSeq++;
     Just justPrep = callTEEpreparePara(block, just);
@@ -2178,6 +2235,7 @@ void Handler::changeView(View newView) {
 
 void Handler::handle_verify_para(MsgVerifyPara msg, const PeerNet::conn_t &conn) {
   if (DEBUGT) printNowTime("handling MsgVerifyPara");
+  if (DEBUG1) std::cout << KBLU << nfo() << "NOW IN HANDLE VERIFY" << KNRM << std::endl;
   if (!isPaused.load()) { handleVerifyPara(msg);}
 }
 

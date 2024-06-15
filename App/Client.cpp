@@ -337,7 +337,7 @@ int main(int argc, char const *argv[]) {
   std::cout << cnfo() << "instance=" << inst << KNRM << std::endl;
 
   if (argc > 7) { sscanf(argv[6], "%d", &maxBlocks); }
-  std::cout << cnfo() << "instance=" << maxBlocks << KNRM << std::endl;
+  std::cout << cnfo() << "maxBlocks=" << maxBlocks << KNRM << std::endl;
 
   numNodes = (constFactor*numFaults)+1;
   qsize = numNodes-numFaults;
@@ -398,9 +398,11 @@ int main(int argc, char const *argv[]) {
   size = std::max({size,
                   sizeof(MsgNewViewPara),
                   sizeof(MsgPreparePara),
-                  sizeof(MsgRecoverPara),
+                  (sizeof(MsgRecoverPara) + maxBlocks * sizeof(PBlock)),
+                  //sizeof(MsgRecoverPara),
                   sizeof(MsgLdrRecoverPara),
-                  sizeof(MsgVerifyPara),
+                  //sizeof(MsgVerifyPara),
+                  (sizeof(MsgVerifyPara) + maxBlocks * sizeof(Hash)),
                   sizeof(MsgLdrPreparePara),
                   sizeof(MsgPreCommitPara),
                   sizeof(MsgCommitPara)});         

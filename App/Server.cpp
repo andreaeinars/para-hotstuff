@@ -145,7 +145,15 @@ int main(int argc, char const *argv[]) {
   if (DEBUG) std::cout << KYEL << "initializing handler" << KNRM << std::endl;
 
   long unsigned int size = std::max({sizeof(MsgTransaction), sizeof(MsgReply), sizeof(MsgStart)});
-
+  size_t verifyParaSize;
+  if (DEBUG0) std::cout << KYEL << "[" << myid << "Faults from params: " << MAX_NUM_NODES << std::endl;
+  if (numFaults == 1) {
+    if (DEBUG0) std::cout << KYEL << "[" << myid << "ONLY ONE FAULT" << KNRM << std::endl;
+    verifyParaSize = sizeof(MsgVerifyPara);
+  } else {
+    if (DEBUG0) std::cout << KYEL << "[" << myid << "MORE THAN ONE FAULT"<< KNRM << std::endl;
+    verifyParaSize = sizeof(MsgVerifyPara) + maxBlocksInView * sizeof(Hash);
+  }
   #if defined(BASIC_BASELINE)
   size = std::max({size,
                    sizeof(MsgNewView),
@@ -165,16 +173,21 @@ int main(int argc, char const *argv[]) {
                   // sizeof(MsgRecoverPara),
                   (sizeof(MsgRecoverPara) + maxBlocksInView * sizeof(PBlock)),
                   sizeof(MsgLdrRecoverPara),
-                  sizeof(MsgVerifyPara),
+                  (sizeof(MsgVerifyPara) + maxBlocksInView * sizeof(Hash)),
+                  //sizeof(MsgVerifyPara),
+                  //verifyParaSize,
                   sizeof(MsgLdrPreparePara),
                   sizeof(MsgPreCommitPara),
                   sizeof(MsgCommitPara)});  
   #endif
-
+  if (DEBUG0) std::cout << KYEL << "[" << myid << "]maxBlocks=" << maxBlocksInView << KNRM << std::endl;
   if (DEBUG0) {
     std::cout << KYEL << "[" << myid << "]sizes"
               << ":newview="        << sizeof(MsgNewView)
               << ":prepare="        << sizeof(MsgPrepare)
+	      << ":recover="         << (sizeof(MsgRecoverPara) + maxBlocksInView * sizeof(PBlock))
+              << ":verify="         << sizeof(MsgVerifyPara) 
+              << ":verifyWBlocks="  << (sizeof(MsgVerifyPara) + maxBlocksInView * sizeof(Hash))
               << ":ldrprepare="     << sizeof(MsgLdrPrepare)
               << ":precommit="      << sizeof(MsgPreCommit)
               << ":commit="         << sizeof(MsgCommit)
