@@ -16,7 +16,7 @@
 import subprocess
 
 # Define the base command and common parameters
-base_command = "python3 experiments.py --docker"
+base_command = "python3 exp_sing.py --cluster"
 
 # Define the experiments with their specific parameters
 experiments_control = [
@@ -34,69 +34,117 @@ experiments_control = [
     #         "dir": "usable_stats/exp-new/control-exp-faults",
     #     }
     # },
-    # {
-    #     "description": "vs blocks",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "1,4,8,16,32,64",
-    #         "numTrans": "100",
-    #         # "netlat": "100",
-    #         # "netvar": "100",
-    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
-    #     }
-    # },
-    # {
-    #     "description": "vs blocks 400 trans",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "1",
-    #         "views": "30",
-    #         "maxBlocksInView": "1,4,8,16,32,64",
-    #         "numTrans": "100",
-    #         "payload": "128",
-    #         # "netlat": "100",
-    #         # "netvar": "100",
-    #         "numcltrans": "1",
-    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
-    #     }
-    # },
-    # {
-    #     "description": "vs blocks 128 payload",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "1,4,8,16,32,64",
-    #         "numTrans": "100",
-    #         # "netlat": "100",
-    #         # "netvar": "100",
-    #         "payload": "256",
-    #         "numcltrans": "1",
-    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
-    #     }
-    # },
     {
-        "description": "vs blocks 512 payload",
+        "description": "vs blocks 0pl 100tx",
         "protocol": "p3",
         "params": {
             "faults": "1",
             "repeats": "3",
             "views": "30",
-            "maxBlocksInView": "64",
+            "maxBlocksInView": "1,4,8,16,32,64",
             "numTrans": "100",
-            "netlat": "100",
-            "netvar": "100",
-            "payload": "512",
-            "numcltrans": "1",
-            "timeout": "10",
-            "dir": "usable_stats/exp-new/control-exp-blocks",
+            "payload": "0",
+            # "netlat": "100",
+            # "netvar": "100",
+            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
+    {
+        "description": "vs blocks 100 trans 128pl",
+        "protocol": "p3",
+        "params": {
+            "faults": "1",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "1,4,8,16,32,64",
+            "numTrans": "100",
+            "payload": "128",
+            # "netlat": "100",
+            # "netvar": "100",
+            #"numcltrans": "1",
+            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
+        }
+    },
+    {
+        "description": "vs blocks 255 payload 100tx",
+        "protocol": "p3",
+        "params": {
+            "faults": "1",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "1,4,8,16,32,64",
+            "numTrans": "100",
+            # "netlat": "100",
+            # "netvar": "100",
+            "payload": "256",
+            #"numcltrans": "1",
+            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
+        }
+    },
+        {
+        "description": "vs blocks 0pl 400tx",
+        "protocol": "p3",
+        "params": {
+            "faults": "1",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "1,4,8,16,32,64",
+            "numTrans": "400",
+            "payload": "0",
+            # "netlat": "100",
+            # "netvar": "100",
+            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
+        }
+    },
+    {
+        "description": "vs blocks 400tx 128pl",
+        "protocol": "p3",
+        "params": {
+            "faults": "1",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "1,4,8,16,32,64",
+            "numTrans": "400",
+            "payload": "128",
+            # "netlat": "100",
+            # "netvar": "100",
+            #"numcltrans": "1",
+            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
+        }
+    },
+    {
+        "description": "vs blocks 256 payload 400tx",
+        "protocol": "p3",
+        "params": {
+            "faults": "1",
+            "repeats": "3",
+            "views": "30",
+            "maxBlocksInView": "1,4,8,16,32,64",
+            "numTrans": "400",
+            # "netlat": "100",
+            # "netvar": "100",
+            "payload": "256",
+            #"numcltrans": "1",
+            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
+        }
+    },
+    # {
+    #     "description": "vs blocks 512 payload",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "64",
+    #         "numTrans": "100",
+    #         "netlat": "100",
+    #         "netvar": "100",
+    #         "payload": "512",
+    #         "numcltrans": "1",
+    #         "timeout": "10",
+    #         "dir": "usable_stats/exp-new/control-exp-blocks",
+    #     }
+    # },
     # {
     #     "description": "vs blocks 512 payload",
     #     "protocol": "p3",
@@ -113,23 +161,23 @@ experiments_control = [
     #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
     #     }
     # },
-    {
-        "description": "vs blocks 512 payload",
-        "protocol": "p3",
-        "params": {
-            "faults": "1",
-            "repeats": "3",
-            "views": "30",
-            "maxBlocksInView": "64",
-            "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
-            "payload": "128",
-            "numcltrans": "1",
-            "timeout": "10",
-            "dir": "usable_stats/exp-new/control-exp-blocks",
-        }
-    },
+    # {
+    #     "description": "vs blocks 512 payload",
+    #     "protocol": "p3",
+    #     "params": {
+    #         "faults": "1",
+    #         "repeats": "3",
+    #         "views": "30",
+    #         "maxBlocksInView": "64",
+    #         "numTrans": "400",
+    #         "netlat": "100",
+    #         "netvar": "100",
+    #         "payload": "128",
+    #         "numcltrans": "1",
+    #         "timeout": "10",
+    #         "dir": "usable_stats/exp-new/control-exp-blocks",
+    #     }
+    # },
 ]
 
 
@@ -401,8 +449,8 @@ def run_experiment(description, protocol, params):
     subprocess.run(command, shell=True)
 
 # Run all experiments sequentially
-# for experiment in experiments_control:
-#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_control:
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
 # for experiment in experiments_delay:
 #     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
@@ -410,8 +458,8 @@ def run_experiment(description, protocol, params):
 # for experiment in experiments_byz:
 #     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
-for experiment in experiments_crash:
-    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+# for experiment in experiments_crash:
+#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
 # for experiment in experiments_recover:
 #     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
