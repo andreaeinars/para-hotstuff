@@ -39,9 +39,9 @@ experiments_control = [
         "protocol": "p3",
         "params": {
             "faults": "1",
-            "repeats": "3",
+            "repeats": "5",
             "views": "30",
-            "maxBlocksInView": "1,4,8,16,32,64",
+            "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "100",
             "payload": "0",
             # "netlat": "100",
@@ -54,9 +54,9 @@ experiments_control = [
         "protocol": "p3",
         "params": {
             "faults": "1",
-            "repeats": "3",
+            "repeats": "5",
             "views": "30",
-            "maxBlocksInView": "1,4,8,16,32,64",
+            "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "100",
             "payload": "128",
             # "netlat": "100",
@@ -65,30 +65,30 @@ experiments_control = [
             #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
-    {
-        "description": "vs blocks 255 payload 100tx",
-        "protocol": "p3",
-        "params": {
-            "faults": "1",
-            "repeats": "3",
-            "views": "30",
-            "maxBlocksInView": "1,4,8,16,32,64",
-            "numTrans": "100",
+    #{
+    #    "description": "vs blocks 255 payload 100tx",
+    #    "protocol": "p3",
+    #    "params": {
+    #        "faults": "1",
+    #        "repeats": "3",
+    #        "views": "30",
+    #        "maxBlocksInView": "1,4,8,16,32,64",
+    #        "numTrans": "100",
             # "netlat": "100",
             # "netvar": "100",
-            "payload": "256",
+     #       "payload": "256",
             #"numcltrans": "1",
             #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
-        }
-    },
+      #  }
+    #},
         {
         "description": "vs blocks 0pl 400tx",
         "protocol": "p3",
         "params": {
             "faults": "1",
-            "repeats": "3",
+            "repeats": "5",
             "views": "30",
-            "maxBlocksInView": "1,4,8,16,32,64",
+            "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "400",
             "payload": "0",
             # "netlat": "100",
@@ -101,9 +101,9 @@ experiments_control = [
         "protocol": "p3",
         "params": {
             "faults": "1",
-            "repeats": "3",
+            "repeats": "5",
             "views": "30",
-            "maxBlocksInView": "1,4,8,16,32,64",
+            "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "400",
             "payload": "128",
             # "netlat": "100",
@@ -112,22 +112,22 @@ experiments_control = [
             #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
-    {
-        "description": "vs blocks 256 payload 400tx",
-        "protocol": "p3",
-        "params": {
-            "faults": "1",
-            "repeats": "3",
-            "views": "30",
-            "maxBlocksInView": "1,4,8,16,32,64",
-            "numTrans": "400",
+    #{
+    #    "description": "vs blocks 256 payload 400tx",
+    #    "protocol": "p3",
+    #    "params": {
+    #        "faults": "1",
+    #        "repeats": "3",
+    #        "views": "30",
+    #        "maxBlocksInView": "1,4,8,16,32,64",
+    #        "numTrans": "400",
             # "netlat": "100",
             # "netvar": "100",
-            "payload": "256",
+     #       "payload": "256",
             #"numcltrans": "1",
             #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
-        }
-    },
+      #  }
+    #},
     # {
     #     "description": "vs blocks 512 payload",
     #     "protocol": "p3",
