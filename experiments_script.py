@@ -112,72 +112,57 @@ experiments_control = [
             #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
-    #{
-    #    "description": "vs blocks 256 payload 400tx",
-    #    "protocol": "p3",
-    #    "params": {
-    #        "faults": "1",
-    #        "repeats": "3",
-    #        "views": "30",
-    #        "maxBlocksInView": "1,4,8,16,32,64",
-    #        "numTrans": "400",
-            # "netlat": "100",
-            # "netvar": "100",
-     #       "payload": "256",
-            #"numcltrans": "1",
-            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
-      #  }
-    #},
-    # {
-    #     "description": "vs blocks 512 payload",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "64",
-    #         "numTrans": "100",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "payload": "512",
-    #         "numcltrans": "1",
-    #         "timeout": "10",
-    #         "dir": "usable_stats/exp-new/control-exp-blocks",
-    #     }
-    # },
-    # {
-    #     "description": "vs blocks 512 payload",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "1,4,8,16,32,64",
-    #         "numTrans": "400",
-    #         # "netlat": "100",
-    #         # "netvar": "100",
-    #         "payload": "0",
-    #         "numcltrans": "1",
-    #         "dir": "usable_stats/exp-new/control-exp-blocks-novar",
-    #     }
-    # },
-    # {
-    #     "description": "vs blocks 512 payload",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "64",
-    #         "numTrans": "400",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "payload": "128",
-    #         "numcltrans": "1",
-    #         "timeout": "10",
-    #         "dir": "usable_stats/exp-new/control-exp-blocks",
-    #     }
-    # },
+]
+
+experiments_sizes = [
+    {
+        "description": "vs blocks 0pl 100tx",
+        "protocol": "p2 --p3",
+        "params": {
+            "faults": "1,2,4,8,16",
+            "repeats": "4",
+            "views": "30",
+            "maxBlocksInView": "8",
+            "numTrans": "100",
+            "payload": "0",
+        }
+    },
+      {
+        "description": "vs blocks 100 trans 64pl",
+        "protocol": "p2 --p3",
+        "params": {
+            "faults": "1,2,4,8,16",
+            "repeats": "4",
+            "views": "30",
+            "maxBlocksInView": "8",
+            "numTrans": "100",
+            "payload": "64",
+        }
+    },
+    {
+        "description": "vs blocks 100 trans 128pl",
+        "protocol": "p2 --p3",
+        "params": {
+            "faults": "1,2,4,8,16",
+            "repeats": "4",
+            "views": "30",
+            "maxBlocksInView": "8",
+            "numTrans": "100",
+            "payload": "128",
+        }
+    },
+        {
+        "description": "vs blocks 256pl 100tx",
+        "protocol": "p2 --p3",
+        "params": {
+            "faults": "1,2,4,8,16",
+            "repeats": "4",
+            "views": "30",
+            "maxBlocksInView": "8",
+            "numTrans": "100",
+            "payload": "256",
+        }
+    },
 ]
 
 

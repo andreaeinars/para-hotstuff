@@ -267,6 +267,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
             instanceType = "replica" if currentInstance < numReps else "client"
             instanceName = f"instance_{node['node']}_{i}"
             if instanceType == "replica":
+              
                 server_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -343,6 +344,11 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     compile_command = f"singularity exec --bind /home/aeinarsd/var/scratch/aeinarsd/para-hotstuff/App:/app/App {sing_file} bash -c 'ls /app/App && make -C /app clean && make -C /app server client'"
 
     subprocess.run(compile_command, shell=True)
+
+    if networkLat > 0:
+        latcmd = f"tc qdisc add dev eth0 root netem delay {networkLat}ms {networkVar}ms distribution normal"
+        latency_command = f"singularity exec {sing_file} bash -c \"{latcmd}\""
+        subprocess.run(latency_command, shell=True, check=True)
 
     # The rest of your logic for setting up and executing the experiment
     for instance in range(repeats):
