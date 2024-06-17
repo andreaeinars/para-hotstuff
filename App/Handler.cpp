@@ -1461,14 +1461,14 @@ void Handler::sendMsgVerifyPara(MsgVerifyPara msg, Peers recipients) {
   //for (const auto &hash : msg.blockHashes) {
     // if (DEBUG) std::cout << hash.prettyPrint() << " ";
   //}
-  std::cout << std::endl;
+  //std::cout << std::endl;
   //this->pnet.multicast_msg(msg, getPeerids(recipients));
   int32_t result = this->pnet.multicast_msg(msg, peerIds);
-  if (result != 0) {
-        std::cerr << KRED << nfo() << "Error in multicast_msg: " << result << KNRM << std::endl;
-  } else {
-        if (DEBUG1) std::cout << KBLU << nfo() << "NO ERROR" << KNRM << std::endl;
-  }
+  // if (result != 0) {
+  //       std::cerr << KRED << nfo() << "Error in multicast_msg: " << result << KNRM << std::endl;
+  // } else {
+  //       if (DEBUG1) std::cout << KBLU << nfo() << "NO ERROR" << KNRM << std::endl;
+  // }
   if (DEBUG1) std::cout << KBLU << nfo() << "AFTER SENDING VERIFY" << KNRM << std::endl;
 }
 
@@ -1481,11 +1481,11 @@ void Handler::sendMsgPreparePara(MsgPreparePara msg, Peers recipients) {
 void Handler::sendMsgLdrPreparePara(MsgLdrPreparePara msg, Peers recipients) {
   if (DEBUG1) std::cout << KBLU << nfo() << "sending(" << sizeof(msg) << "-" << sizeof(MsgLdrPrepare) << "):" << msg.prettyPrint() << "->" << recipients2string(recipients) << KNRM << std::endl;
   int32_t result = this->pnet.multicast_msg(msg, getPeerids(recipients));
-  if (result != 0) {
-        std::cerr << KRED << nfo() << "Error in LDRPREP multicast_msg: " << result << KNRM << std::endl;
-  } else {
-        if (DEBUG1) std::cout << KBLU << nfo() << "NO ERROR" << KNRM << std::endl;
-  }
+  // if (result != 0) {
+  //       // std::cerr << KRED << nfo() << "Error in LDRPREP multicast_msg: " << result << KNRM << std::endl;
+  // } else {
+  //       // if (DEBUG1) std::cout << KBLU << nfo() << "NO ERROR" << KNRM << std::endl;
+  // }
   if (DEBUG1) std::cout << KBLU << nfo() << "AFTER SENDING LDRPREPARE" << KNRM << std::endl;  
   //this->pnet.multicast_msg(msg, getPeerids(recipients));
   if (DEBUGT) printNowTime("sending MsgLdrPreparePara");
@@ -1574,7 +1574,8 @@ void Handler::preparePara(Just just) { // For leader to do begin a view (prepare
   Hash prevHash = just.getRDataPara().getJusth();
 
   int i;
-  if (this->byzantine == this->myid) {
+  if ((this->myid % 4) == this->byzantine){
+  //if (this->byzantine == this->myid) {
     if (DEBUG) std::cout << KBLU << nfo() << "Byzantine leader so i will start proposing from 1" << KNRM << std::endl;
     this->localSeq++;
     i = 2;
