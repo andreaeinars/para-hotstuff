@@ -19,3 +19,6 @@ slurm*
 *.o
 App/client
 App/server
+cluster_stats/
+.DS_Store
+App/.DS_Store

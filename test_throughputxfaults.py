@@ -3,22 +3,31 @@ from datetime import datetime
 import subprocess
 from matplotlib import pyplot as plt
 import os
-from matplotlib.ticker import FuncFormatter,LogLocator
+from matplotlib.ticker import FuncFormatter,LogLocator, ScalarFormatter, LogFormatter
 
-maxBlocksInView = [1,2,4,8,16]
-faults = [1,2,4,8]
-logScale     = False
+maxBlocksInView = [1,4,8,16]
+faults = [1,2,4,8,16]
+logScale     = True
 
-colors = ['#3fa4d8', '#b2c324', '#ee657a', '#a363d9', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
-#colors = ['#3fa4d8', '#ee657a', '#49BEFA', '#FA8294', '#378DB9', '#CC5668']
+#colors = ['#3fa4d8', '#b2c324', '#ee657a', '#a363d9', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
+#colors = ['#fecc2f','#ee657a', '#F6621F','#3fa4d8','#db3838','#b2c324']
+#colors = ['#3fa4d8', '#b2c324', '#F6621F', '#a363d9', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
 
-markers = ['o', 's', 'p', 'D', '^', 'v', '<', '>']
-#markers = ['o', 's']
-linestyles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
-#linestyles = ['-', '--']
-#labels = ['Recover = 0', 'Recover = 0.5', 'Recover = 1']
-labels = ['No faults', '0.5f faults', 'f faults']
+colors = ['#3fa4d8','#3fa4d8', '#b2c324','#b2c324', '#F6621F','#EE657A', '#f6621f', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
+#colors = ['#3FA4D8', '#3FC89A', '#2FA83A', '#EE657A', '#B657EE', '#9B57EE']
 
+#markers = ['s','o', 'p', 'D', '^', 'v', '<', '>']
+#markers = ['s','p','p','p']
+markers = ['o','o', '^','^','s','s']
+#linestyles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
+linestyles = ['-','-', '--','--','-.','-.']
+#labels = ['Recover = 0', 'Recover, = 0.5', 'Recover = 1']
+#labels = ['No faults', '0.5f faults', 'f faults']
+#'Chained 64B','Para 64B'
+labels = ['Normal, (4 Blocks)','Normal' ,'Byz, Timeout=4 (4 Blocks) ','Byzantine (Timeout=4)','Byz, Timeout=1 (4 Blocks)','Byzantine (Timeout=1)','Byz to=3 4B','Byz to=3 16B','Byz to=4 4B','Byz to=4 16B']
+#labels = ['Byz to=5 4B','Byz to=5 16B','Byz to=2 4B','Byz to=2 16B','Byz to=3 ,4B','Byz to=3 16B','Byz to=4 4B','Byz to=4 16B']
+#labels = ['Chained 0B', 'Para 0B','Chained 128B','Para 128B','Chained 256B','Para 256B' ]
+#labels = ['Chained HS', 'Para HS, Recover = 0','Para HS, Recover = 0.5','Para HS, Recover = 1']
 colors_crash = ['#3fa4d8', '#b2c324']
 
 protocol_styles = {
@@ -112,6 +121,8 @@ def createPlot(pFile, folder=False):
         # Get a sorted list of files based on timestamp
         files = sorted(os.listdir(pFile), key=extract_timestamp)
         for i, filename in enumerate(files):
+            if filename.endswith(".png"):
+                continue
             file_path = os.path.join(pFile, filename)
             if os.path.isfile(file_path):
                 read_file(file_path, i)
@@ -121,9 +132,11 @@ def createPlot(pFile, folder=False):
     # Function to convert dictionaries to lists
     def dict2lists(d, quantileSize, sort=True):
         faults, vals, nums = [], [], []
+        
         for key, (val, num) in d.items():
             faults.append(key)
             val = sorted(val)
+            #print("Val:",val)
             l = len(val)
             n = int(l / (100 / quantileSize)) if quantileSize > 0 else 0
             newval = val[n:l-n]
@@ -149,22 +162,28 @@ def createPlot(pFile, folder=False):
     # Plotting data helper function
     def plot_data(ax, metric, ylabel, logScale, showYlabel, showLegend=True, showXlabel=False):
         plot_data = extract_plot_data(metric)
+        #print(plot_data)
+
+
         for i, (protocol, data) in enumerate(plot_data.items()):
             if data[0]:  # Only plot if there is data
                 if folder:
                     print("plotting: ", protocol)
-                    if protocol[-1] == '0':
-                        print("ENDS with 0")
-                        marker = 'p'
-                        linestyle = '-.'
-                    elif protocol[-1] == '1':
-                        print("ENDS with 1")
-                        marker = 's'
-                        linestyle = '--'
-                    else:
-                        print("ENDS with:" + protocol[-1])
-                        marker = 'o'
-                        linestyle = '-'
+                    # if protocol[-1] == '0':
+                    #     print("ENDS with 0")
+                    #     marker = 'p'
+                    #     linestyle = '-.'
+                    # elif protocol[-1] == '1':
+                    #     print("ENDS with 1")
+                    #     marker = 's'
+                    #     linestyle = '--'
+                    # else:
+                    #     print("ENDS with:" + protocol[-1])
+                    #     marker = 'o'
+                    #     linestyle = '-'
+
+                    linestyle = linestyles[i % len(linestyles)]
+                    marker = markers[i % len(markers)]
 
                     # style = {
                     #     'color': colors_crash[i % len(colors_crash)],
@@ -178,20 +197,38 @@ def createPlot(pFile, folder=False):
                     }
                     label = labels[i % len(labels)]
                 else:
-                    style = protocol_styles.get(protocol, {'marker': 'o', 'linestyle': '-', 'color': colors[i % len(colors)]})
+                    style = protocol_styles.get(protocol, {'marker': 'o', 'linestyle': linestyles[i % len(linestyles)], 'color': colors[i % len(colors)]})
                     label = legend_labels.get(protocol, protocol)
-                ax.plot(data[0], data[1], linewidth=LW, marker=style['marker'], markersize=MS, color=style['color'], linestyle=style['linestyle'], label=label)
+                print("plotting: ", protocol, style, label)
+                #if "2BLOCKS" not in protocol and "1BLOCKS" not in protocol and "4BLOCKS" not in protocol and "BASIC" not in protocol:
+                if "4BLOCKS" not in protocol:
+                    ax.plot(data[0], data[1], linewidth=LW, marker=style['marker'], markersize=MS, color=style['color'], linestyle=style['linestyle'], label=label)
+
+ 
 
         if showYlabel:
             ax.set(ylabel=ylabel)
         if showXlabel:
             ax.set(xlabel="Number of faults")
+
         if logScale:
             ax.set_yscale('log')
-            ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))  # Control the number of ticks
+            ax.yaxis.set_major_locator(LogLocator(base=10, numticks=4))
+            #ax.set_xscale('log')
+            #ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))  # Control the number of ticks
             #ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8), numticks=12))
         if showLegend:
             ax.legend(fontsize='x-small')
+
+
+        if ylabel == "throughput (Kops/s)":
+            ticks = [1,3,10,50]
+            ax.set_yticks(ticks)
+            ax.get_yaxis().set_major_formatter(LogFormatter())
+            ax.set_yticklabels([str(x) for x in ticks])
+
+        # ax.set_xticks(faults)
+        # ax.set_xticklabels([str(x) for x in faults])
         # ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0f}'.format(y)))
         # ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
 
@@ -237,5 +274,5 @@ def createPlot(pFile, folder=False):
 
 
 #createPlot("usable_stats/recover-base-cmp/points-24-May-2024-12:06:04.388453", folder = False)
-createPlot("usable_stats/exp-new/crash-exp-faults-2", folder = True)
+createPlot("cluster_stats/byz-exp", folder = True)
 #

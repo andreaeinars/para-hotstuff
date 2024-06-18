@@ -7,7 +7,7 @@ repeats      = 1 #10 #50 #5 #100 #2     # number of times to repeat each experim
 repeatsL2    = 1
 #
 numViews     = 5    # number of views in each run
-cutOffBound  = 200     # stop experiment after some time
+cutOffBound  = 1000     # stop experiment after some time
 maxBlocksInView = [16]
 forceRecover = 0  # to force the recovery of the nodes
 #expmode = 'TVL'

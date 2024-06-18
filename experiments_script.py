@@ -265,15 +265,16 @@ experiments_crash = [
         "description": "xFaults",
         "protocol": "p3",
         "params": {
-            "faults": "1,2,4,8",
-            "repeats": "3",
-            "timeout": "10",
-            "views": "30",
+            "faults": "1,2,4,8,16",
+            "repeats": "5",
+            "timeout": "5",
+            "views": "100",
             "maxBlocksInView": "16",
             "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
-            "dir": "usable_stats/exp-new/crash-exp-faults-3",
+            "netlat": "30",
+            "netvar": "30",
+            "payload": "128",
+            "dir": "usable_stats/exp-new/crash-exp-4",
             "crash":"0",
         }
     },
@@ -281,15 +282,16 @@ experiments_crash = [
         "description": "xFaults",
         "protocol": "p3",
         "params": {
-            "faults": "1,2,4,8",
-            "repeats": "3",
-            "views": "30",
-            "timeout": "10",
+            "faults": "1,2,4,8,16",
+            "repeats": "5",
+            "views": "100",
+            "timeout": "5",
             "maxBlocksInView": "16",
             "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
-            "dir": "usable_stats/exp-new/crash-exp-faults-3",
+            "netlat": "30",
+            "netvar": "30",
+            "payload": "128",
+            "dir": "usable_stats/exp-new/crash-exp-4",
             "crash":"0.5",
         }
     },
@@ -297,16 +299,17 @@ experiments_crash = [
         "description": "SECOND",
         "protocol": "p3",
         "params": {
-            "faults": "1,2,4,8",
-            "repeats": "3",
-            "views": "30",
-            "timeout": "10",
+            "faults": "1,2,4,8,16",
+            "repeats": "5",
+            "views": "100",
+            "timeout": "5",
             "maxBlocksInView": "16",
             "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
+            "netlat": "30",
+            "netvar": "30",
+            "payload": "128",
             "crash":"1",
-            "dir": "usable_stats/exp-new/crash-exp-faults-3",
+            "dir": "usable_stats/exp-new/crash-exp-4",
         }
     }, # TODO: Finish crash experiments
 ]
@@ -395,7 +398,7 @@ experiments_client = [
             "faults": "1",
             "repeats": "3",
             "numTrans": "100",
-            "payload":"128".
+            "payload":"128",
             "maxBlocksInView": "8,16,32",
         }
     },
@@ -412,6 +415,8 @@ def run_experiment(description, protocol, params):
 # Run all experiments sequentially
 #for experiment in experiments_control:
 #    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+# for experiment in experiments_control:
+#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
 # for experiment in experiments_delay:
 #     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
@@ -419,8 +424,8 @@ def run_experiment(description, protocol, params):
 for experiment in experiments_byz_2:
     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
-# for experiment in experiments_crash:
-#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_crash:
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
 # for experiment in experiments_recover:
 #     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])

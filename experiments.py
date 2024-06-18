@@ -120,7 +120,7 @@ def mkApp(protocol,constFactor,numFaults,numTrans,payloadSize,maxBlocksInView=0)
 def schedule_pauses_and_resumes(subReps, totalTime, numFaults, ratioFaults=1):
     events = []
     crashed_nodes = set()
-    crash_interval = 2  # Interval between sets of crashes
+    crash_interval = 3  # Interval between sets of crashes
 
     # Calculate the effective number of faults to introduce based on the ratio
     num_act_faults = max(1, int(numFaults * ratioFaults))
@@ -141,7 +141,7 @@ def schedule_pauses_and_resumes(subReps, totalTime, numFaults, ratioFaults=1):
             # Schedule crashes and calculate the next earliest possible crash time
             for node in nodes_to_crash:
                 crash_time = current_time
-                recover_time = crash_time + random.randint(3, 5)
+                recover_time = crash_time + random.randint(2, 3)
                 events.append((crash_time, 'crash', node))
                 events.append((recover_time, 'recover', node))
 
@@ -167,11 +167,12 @@ def schedule_pauses_and_resumes(subReps, totalTime, numFaults, ratioFaults=1):
 def get_server_pid(container_name):
     """Retrieve the PID of the server process within the specified Docker container."""
     try:
-        cmd = f"docker exec {container_name} ps aux | awk '$11==\"./server\" {{print $2}}'"
+        cmd = f"docker exec {container_name} ps aux | awk '$11==\"./App/server\" {{print $2}}'"
         pid = subprocess.check_output(cmd, shell=True).decode().strip()
         if pid:
             return pid
         else:
+
             print(f"No server process found in Docker container {container_name}")
             return None
     except subprocess.CalledProcessError as e:
@@ -289,14 +290,17 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
             events = schedule_pauses_and_resumes(subsReps, cutOffBound, numFaults, 1)
         # print("EVENTS:", events)
 
+        # for event in events:
+        #     print("EVENT: ", event)
+
         remaining = subsReps.copy()
         # We wait here for all processes to complete
         # but we stop the execution if it takes too long (cutOffBound)
         while 0 < len(remaining) and totalTime < cutOffBound:
-            # print("Current time: ", totalTime)
+            #print("Current time: ", totalTime)
             #print("remaining processes:", remaining, " len events: ", len(events))
-            # for event in events:
-            #     print("EVENT: ", event)
+           
+
             if len(remaining) < 3*numFaults: # Not enough nodes are running
                 # Check if any node has crashed and recover it
                 #for (t, i, p) in remaining:
@@ -349,7 +353,7 @@ def execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFa
 
     if totalTime < cutOffBound:
         completeRuns += 1
-        print("all", len(subsReps)+len(subsClients), "processes are done")
+        print("all", len(subsReps)+len(subsClients), "processes are done at time: ", totalTime)
     else:
         abortedRuns += 1
         conf = (protocol,numFaults,instance)
@@ -991,15 +995,15 @@ def TVL():
 
     # Values for the non-chained versions
     #numClTrans   = 110000
-    numClTrans   = 100000 #250000 #260000 #500000 # - 100000 seems fine for basic versions
+    numClTrans   = 50000 #250000 #260000 #500000 # - 100000 seems fine for basic versions
     #numClients   = 5 #2 #16 #1 # --- 1 seems fine for basic versions
 
     # Values for the chained version
-    numClTransCh = 100000 #250000 #260000 #500000 # - 100000 seems fine for basic versions
+    numClTransCh = 50000 #250000 #260000 #500000 # - 100000 seems fine for basic versions
     #numClientsCh = 6 #4 #16 #1 # --- 1 seems fine for basic versions
 
     numFaults        = 1
-    numTransPerBlock = 400 #10
+    numTransPerBlock = 100 #10
     payloadSize      = 0 #256
     numViews         = 0 # nodes don't stop
     cutOffBound      = 200
@@ -1014,7 +1018,10 @@ def TVL():
         #sleepTimes = [900,500,100,50,10,5,0]
         sleepTimes = [900]
     else:
-        sleepTimes = [900,700,500,100,50,10,5,0] #[500,50,0] #
+        #sleepTimes = [900,700,500,100,50,10,5,0] #[500,50,0] #
+
+        sleepTimes = [900,500,0]
+    sleepTimes = [2000,1500,1000,900,800,700,600,500,350,250,150,100,50,10,5,0]
 
     f = open(clientsFile, 'a')
     f.write("# transactions="+str(numClTrans)+" "+
@@ -1218,6 +1225,8 @@ def executeClusterInstances(instanceRepIds,instanceClIds,protocol,constFactor,nu
     procsRep   = []
     procsCl    = []
     newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
+
+    newtimeout = int(math.ceil(timeout+(math.log(numFaults,2))*100+(math.log(maxBlocksInView,2))*50))
 
     # FOR REPLICAS
     for (n, i, node) in instanceRepIds:

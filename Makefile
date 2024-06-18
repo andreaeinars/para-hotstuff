@@ -41,7 +41,7 @@ keys: App/Keys.o App/KeysFun.o
 	@$(CXX) $^ -o $@ $(App_Link_Flags) $(Salticidae_Include_Paths)
 	@echo "LINK => $@"
 
-App/%.o: App/%.cpp App/%.h App/params.h
+App/%.o: App/%.cpp App/params.h
 	@$(CXX) $(App_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 

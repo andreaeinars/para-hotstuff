@@ -295,8 +295,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     procsRep   = []
     procsCl    = []
-    newtimeout = int(math.ceil(timeout+(math.log(numFaults,2))*500+((math.log(maxBlocksInView,2)))*200))
-    #newtimeout = 
+    newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))#newtimeout = 
 
     currentInstance = 0
     for node in nodes:
@@ -358,45 +357,57 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     totalTime = 0
     cutOffBound = 200
-    remaining = procsRep.copy()
-    #time.sleep(10)
-    while remaining and totalTime < cutOffBound:
-        print(f"Time elapsed: {totalTime} seconds")
-        sys.stdout.flush()
 
-        if len(remaining) < 3*numFaults:
-            # If any replicas are crashed when its time to record stats, recover them
-            if events:
-                event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
-                #event_time, action, (t, i, p) = events.pop(0)
-                while action == "recover":
-                    print("Recovering node: ",instanceName, " so it can record stats")
-                    recover_container(pid,node_info, instanceName)
+    if expmode == "TVL":
+        remaining = procsCl.copy()
+        while 0 < len(remaining) and totalTime < cutOffBound:
+            #print(f"Time elapsed: {totalTime} seconds")
+            sys.stdout.flush()
+            for p in remaining.copy():
+                n, i, node, proc, pid = p
+                print_output(proc, i)
+                if proc.poll() is not None:
+                    print(f"Node {i} has completed")
+                    sys.stdout.flush()
+                    remaining.remove(p)
+            time.sleep(1)
+            totalTime += 1
+    else:
+        remaining = procsRep.copy()
+        #time.sleep(10)
+        while remaining and totalTime < cutOffBound:
+            #print(f"Time elapsed: {totalTime} seconds")
+            sys.stdout.flush()
+            if len(remaining) < 3*numFaults:
+                # If any replicas are crashed when its time to record stats, recover them
+                if events:
                     event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
-                events.clear()
-        
-        if crash > 0 :
-            while events and events[0][0] <= totalTime:
-                event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
-                if action == "crash":
-                    crash_container(pid,node_info, instanceName)
-                elif action == "recover":
-                    recover_container(pid, node_info,instanceName)
-        
-                print(f"{action} node {i} at time {event_time}")
-        
+                    #event_time, action, (t, i, p) = events.pop(0)
+                    while action == "recover":
+                        print("Recovering node: ",instanceName, " so it can record stats")
+                        recover_container(pid,node_info, instanceName)
+                        event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
+                    events.clear()
+            
+            if crash > 0 :
+                while events and events[0][0] <= totalTime:
+                    event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
+                    if action == "crash":
+                        crash_container(pid,node_info, instanceName)
+                    elif action == "recover":
+                        recover_container(pid, node_info,instanceName)
+                    print(f"{action} node {i} at time {event_time}")
+            
+            for p in remaining.copy():
+                n, i, node, proc, pid = p
+                print_output(proc, i)
+                if proc.poll() is not None:
+                    print(f"Node {i} has completed")
+                    sys.stdout.flush()
+                    remaining.remove(p)
 
-        for p in remaining.copy():
-            n, i, node, proc, pid = p
-            print_output(proc, i)
-            if proc.poll() is not None:
-                print(f"Node {i} has completed")
-                sys.stdout.flush()
-                remaining.remove(p)
-
-
-        time.sleep(1)
-        totalTime += 1
+            time.sleep(1)
+            totalTime += 1
 
     if totalTime >= cutOffBound:
         print("Timeout reached. Terminating all processes.")
@@ -413,6 +424,77 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     return instanceRepIds, instanceClIds
 # # End of executeClusterInstances
+
+def printClientPoint(protocol,sleepTime,numFaults,throughput,latency,numPoints):
+    f = open(clientsFile, 'a')
+    f.write("protocol="+protocol.value+" "+"sleep="+str(sleepTime)+" "+"faults="+str(numFaults)+" throughput="+str(throughput)+" latency="+str(latency)+" numPoints="+str(numPoints)+"\n")
+    f.close()
+
+def computeClientStats(protocol,numClTrans,sleepTime,numFaults):
+    throughputs = []
+    latencies   = []
+    numExecs  = []
+    files       = glob.glob(statsdir+"/*")
+    for filename in files:
+        if filename.startswith(statsdir+"/client-throughput-latency"):
+            f = open(filename, "r")
+            s = f.read()
+            [thr,lat,numExec] = s.split(" ")
+            if (float(numExec) > 0.0):
+                throughputs.append(float(thr))
+                latencies.append(float(lat))
+            numExecs.append(float(numExec))
+
+    #printClientPoint(protocol,sleepTime,numFaults,throughput,latency,numPoints)
+
+    print("LAT: ", latencies)
+    #print("LAT2: ", latencies2)
+
+    # we remove the top and bottom 10% quantiles
+    l   = len(latencies)
+    num = int(l/(100/quantileSize))
+
+    throughputsSorted = sorted(throughputs)
+    latenciesSorted   = sorted(latencies)
+
+    newthroughputs = throughputsSorted[num:l-num]
+    newlatencies   = latenciesSorted[num:l-num]
+
+    throughput = 0.0
+    for i in newthroughputs:
+        throughput += i
+    throughput = throughput/len(newthroughputs) if len(newthroughputs) > 0 else -1.0
+
+    latency = 0.0
+    for i in newlatencies:
+        latency += i
+    latency = latency/len(newlatencies) if len(newlatencies) > 0 else -1.0
+
+    f = open(debugFile, 'a')
+    f.write("------------------------------\n")
+    f.write("Protocol: "+protocol.value+"\n")
+    f.write("numClTrans="+str(numClTrans)+";sleepTime="+str(sleepTime)+";length="+str(l)+";remove="+str(num)+";throughput="+str(throughput)+";latency="+str(latency)+"\n")
+    f.write("numExec="+str(numExecs)+"\n")
+    f.write("Not sorted thr:" + str(throughputs) + "\n")
+    f.write("Not sorted lats:" + str(latencies) + "\n")
+    f.write("before:\n")
+    f.write(str(throughputsSorted)+"\n")
+    f.write(str(latenciesSorted)+"\n")
+    f.write("after:\n")
+    f.write(str(newthroughputs)+"\n")
+    f.write(str(newlatencies)+"\n")
+    f.close()
+    print("numClTrans="+str(numClTrans)+";sleepTime="+str(sleepTime)+";length="+str(l)+";remove="+str(num)+";throughput="+str(throughput)+";latency="+str(latency))
+    print("before:")
+    print(throughputs)
+    print(latencies)
+    print("after:")
+    print(newthroughputs)
+    print(newlatencies)
+
+    numPoints = l-(2*num)
+    printClientPoint(protocol,sleepTime,numFaults,throughput,latency,numPoints)
+# Enf of computeClientStats
 
 def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,maxBlocksInView=0,forceRecover=0,byzantine=-1):
     print("<<<<<<<<<<<<<<<<<<<<",
@@ -434,18 +516,41 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
 
     subprocess.run(compile_command, shell=True)
 
-    if networkLat > 0:
-        latcmd = f"tc qdisc add dev eth0 root netem delay {networkLat}ms {networkVar}ms distribution normal"
-        latency_command = f"singularity exec {sing_file} bash -c \"{latcmd}\""
-        subprocess.run(latency_command, shell=True, check=True)
+    if expmode == "TVL":
+        sleepTimes = [2000,1500,1000,900,800,700,600,500,350,250,150,100,50,10,5,0]
+        f = open(clientsFile, 'a')
+        f.write("# transactions="+str(numClTrans)+" "+
+                "faults="+str(numFaults)+" "+
+                "transactions="+str(numTrans)+" "+
+                "payload="+str(payloadSize)+" "+
+                "cutoff="+str(cutOffBound)+" "+
+                "repeats="+str(repeats)+" "+
+                "rates="+str(sleepTimes)+"\n")
+        f.close()
+        
+        for sleepTime in sleepTimes:
+            clearStatsDir()
+            for i in range(repeats):
+                print(">>>>>>>>>>>>>>>>>>>>",
+                    "protocol="+protocol.value,
+                    ";payload="+str(payloadSize),
+                    "(factor="+str(constFactor)+")",
+                    "sleep="+str(sleepTime),
+                    "#faults="+str(numFaults),
+                    "repeat="+str(i))
+                time.sleep(2)
+                executeClusterInstances(nodes, numReps, numClients, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, i, maxBlocksInView, forceRecover, byzantine)
+                #execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,i, maxBlocksInView)
+            computeClientStats(protocol,numClTrans,sleepTime,numFaults)
 
-    # The rest of your logic for setting up and executing the experiment
-    for instance in range(repeats):
-        clearStatsDir()  # Clear any existing data
-        instanceRepIds, instanceClIds = executeClusterInstances(nodes, numReps, numClients, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
-        #executeClusterInstances(instanceRepIds, instanceClIds, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
-        results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
-        print("Results:", results)
+    else:
+        # The rest of your logic for setting up and executing the experiment
+        for instance in range(repeats):
+            clearStatsDir()  # Clear any existing data
+            instanceRepIds, instanceClIds = executeClusterInstances(nodes, numReps, numClients, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
+            #executeClusterInstances(instanceRepIds, instanceClIds, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, instance, maxBlocksInView, forceRecover, byzantine)
+            results = computeStats(protocol, numFaults, instance, repeats, maxBlocksInView)
+            print("Results:", results)
 
 # End of executeCluster
 

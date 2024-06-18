@@ -9,20 +9,21 @@ import os
 colors = ['#3fa4d8', '#b2c324', '#ee657a', '#a363d9', '#fecc2f', '#db3838', '#f6621f', '#f9a227']
 markers = ['o', 's', 'p', 'D', '^', 'v', '<', '>']
 linestyles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
-#labels = ['100 tx', '400 tx','100 tx, 128B pl','100 tx, 512B pl','400 tx', '400 tx, 128B pl', ]
-labels = ['Normal','Byzantine']
+labels = ['100 tx 0B', '100 tx, 128B','400 tx, 0B','400 tx, 128B','400 tx, 128B', '400 tx, 256B', ]
+#labels = ['Normal','Byzantine']
 #labels =['Byzantine']
 
 showYlabel   = True
 #maxBlocksInView = [1,2,5,10,15,20]
 #maxBlocksInView = [1,2,5,10,15,20,25,30,40]
-maxBlocksInView = [4,8,16,32,64]
+maxBlocksInView = [1,2,4,8,16,32,64,128]
 faults = [1]
 logScale = True
 
 def createPlot(folderName, folder=False):
     def init_dicts():  # Dictionary initialization
         protocols = [f"PARALLEL_HOTSTUFF-{blocks}BLOCKS" for blocks in maxBlocksInView]
+        print("protocols:", protocols)
         metrics = ["throughput-view", "latency-view", "handle", "crypto-sign", "crypto-verif"]
         return {protocol: {metric: {} for metric in metrics} for protocol in protocols}
 
@@ -73,7 +74,10 @@ def createPlot(folderName, folder=False):
                 if line.startswith("protocol"):
                     parts = line.split(" ")
                     protocol = parts[0].split("=")[1]
-                    numBlocks = int(protocol.split('-')[-1].replace("BLOCKS", ""))
+                    try:
+                        numBlocks = int(protocol.split('-')[-1].replace("BLOCKS", ""))
+                    except:
+                        numBlocks = 1
                     pointTag = parts[2].split("=")[0]
                     pointVal = float(parts[2].split("=")[1])
                     if pointVal < float('inf'):
@@ -128,6 +132,9 @@ def createPlot(folderName, folder=False):
     # Plotting data helper function
     def plot_data(ax, metric, ylabel, logScale, showYlabel, showLegend=True, showXlabel=False, color='blue', marker='o', linestyle='-', label=None):
         plot_data = extract_plot_data(metric)
+        for protocol in plot_data:
+            print(f"Protocol: {protocol}")
+            print(f"Data: {plot_data[protocol]}")
         #sorted_protocols = sorted(plot_data.keys())
         sorted_protocols = sorted(plot_data.keys(), key=lambda p: int(p.split('-')[-1].replace('BLOCKS', '')))
         
@@ -141,6 +148,8 @@ def createPlot(folderName, folder=False):
                 y_values.append(data[1][0])
                 ax.plot(data[0], data[1], linewidth=LW, markersize=MS, color=color, marker=marker, linestyle=linestyle)
 
+        print("Plotting protocol:", protocol)
+        print("x_values:", x_values)
         if len(x_values) > 1:
             # Connect all points with a line
             ax.plot(x_values, y_values, linewidth=LW, markersize=MS, color=color, marker=marker, linestyle=linestyle, label=label)
@@ -151,19 +160,17 @@ def createPlot(folderName, folder=False):
             ax.set(xlabel="Blocks in View")
         if logScale:
             ax.set_yscale('log')
-            # ax.yaxis.set_major_locator(LogLocator(base=10.0,  subs='auto'))  # Control the number of ticks
-            # ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2, 10) * 0.1, numticks=4))
-            ax.yaxis.set_minor_formatter(NullFormatter())  # No labels on minor ticks
-
-        else:
-            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-
+            # ax.yaxis.set_major_locator(LogLocator(base=10.0))
+            # ax.yaxis.set_minor_formatter(NullFormatter())  # No labels on minor ticks
+        ax.set_xscale('log')
         if showLegend:
-            #ax.legend(fontsize='x-small',loc='lower center', bbox_to_anchor=(0.7, 0))
             ax.legend(fontsize='x-small')
 
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0f}'.format(y)))
-        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
+        ax.set_xticks(maxBlocksInView)
+        ax.set_xticklabels([str(x) for x in maxBlocksInView])
+
+        # ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0f}'.format(y)))
+        # ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
 
 
     # Plotting setup
@@ -222,7 +229,6 @@ def createPlot(folderName, folder=False):
 
             if plotThroughput:
                 plot_data(axs[0], "throughput-view", "Throughput (Kops/s)" if showYlabel else "", logScale, showYlabel=True, showLegend=True, color=color, marker=marker, linestyle=linestyle, label=label)
-
             if plotLatency:
                 ax = axs[0] if numPlots == 1 else axs[1]
                 ylabel = "Latency (ms)" if not plotHandle else "handling time (ms)"
@@ -250,4 +256,4 @@ def createPlot(folderName, folder=False):
     return {protocol: data_dict[protocol]["throughput-view"] for protocol in data_dict}
 
 
-createPlot("usable_stats/exp-new/byz-exp-blocks", folder=True)
+createPlot("cluster_stats/blocks-exp-3", folder=True)
