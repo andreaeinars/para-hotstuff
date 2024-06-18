@@ -205,23 +205,37 @@ def print_output(proc, name):
         print(f"Print ERROR from {name}: {e}")
         sys.stdout.flush()
 
-def send_signal_to_singularity_container(pid, instanceName, signal_type):
+def get_singularity_pid(command):
+    """Retrieve the PID of the main process started by the given Singularity command."""
+    try:
+        # Adjust the pattern to match the process running inside the Singularity container
+        cmd = f"pgrep -f '{command}'"
+        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        pid = result.stdout.strip()
+        print("FOUND PID: ", pid)
+        return pid if pid else None
+    except subprocess.CalledProcessError as e:
+        print(f"Error getting PID for Singularity container started with command '{command}': {e}")
+        return None
+
+def send_signal_to_singularity_container(pid,node, instanceName, signal_type):
     """Send a signal to the main process within a Singularity container."""
     try:
         if pid:
             cmd = f"kill -{signal_type} {pid}"
-            subprocess.run(cmd, shell=True, check=True)
+            ssh_command = f"ssh {node['user']}@{node['host']} '{cmd}'"
+            subprocess.run(ssh_command, shell=True, check=True)
             print(f"Signal {signal_type} sent to PID {pid} in Singularity container {instanceName}")
         else:
             print(f"No server process PID available for container {instanceName}")
     except Exception as e:
         print(f"Failed to send signal {signal_type} to Singularity container {instanceName}: {e}")
 
-def crash_container(pid, instanceName):
-    send_signal_to_singularity_container(pid, instanceName, 'USR1')  # Pause the application
+def crash_container(pid, node,instanceName):
+    send_signal_to_singularity_container(pid, node,instanceName, 'USR1')  # Pause the application
 
-def recover_container(pid, instanceName):
-    send_signal_to_singularity_container(pid, instanceName, 'USR2')
+def recover_container(pid,node, instanceName):
+    send_signal_to_singularity_container(pid,node, instanceName, 'USR2')
 
 def schedule_pauses_and_resumes(subReps, totalTime, numFaults, ratioFaults=1):
     events = []
@@ -234,25 +248,26 @@ def schedule_pauses_and_resumes(subReps, totalTime, numFaults, ratioFaults=1):
 
     current_time = 0
     last_recovery_time = 0
-
+    subReps_names = [rep[1] for rep in subReps]
     while current_time < totalTime:
         # Determine nodes to crash
         if current_time >= last_recovery_time + crash_interval:
-            available_nodes = list(set(subReps) - crashed_nodes)
+            available_nodes = list(set(subReps_names) - crashed_nodes)
             if len(available_nodes) < num_act_faults:
                 break  # Not enough nodes to crash
 
             nodes_to_crash = random.sample(available_nodes, num_act_faults)
+            nodes_to_crash_full = [rep for rep in subReps if rep[1] in nodes_to_crash]
 
             # Schedule crashes and calculate the next earliest possible crash time
-            for node in nodes_to_crash:
+            for node in nodes_to_crash_full:
                 crash_time = current_time
                 recover_time = crash_time + random.randint(3, 5)
                 events.append((crash_time, 'crash', node))
                 events.append((recover_time, 'recover', node))
 
                 # Update crashed nodes set
-                crashed_nodes.add(node)
+                crashed_nodes.add(node[1])
                 last_recovery_time = max(last_recovery_time, recover_time)
 
             # Move time forward by the crash interval
@@ -263,12 +278,13 @@ def schedule_pauses_and_resumes(subReps, totalTime, numFaults, ratioFaults=1):
         # Recover nodes that are scheduled to be recovered by current_time
         for event in events:
             if event[0] <= current_time and event[1] == 'recover':
-                if event[2] in crashed_nodes:
-                    crashed_nodes.remove(event[2])
+                if event[2][1] in crashed_nodes:
+                    crashed_nodes.remove(event[2][1])
 
     # Sort events by time to maintain a correct order in the final list
     events.sort(key=lambda x: x[0])
     return events
+
 
 def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,instance,maxBlocksInView=0, forceRecover=0, byzantine=-1):
     totalInstances = numReps + numClients
@@ -279,8 +295,8 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     procsRep   = []
     procsCl    = []
-    newtimeout = int(math.ceil(timeout+math.log(numFaults,2)))
-    #newtimeout = 300
+    newtimeout = int(math.ceil(timeout+(math.log(numFaults,2))*500+((math.log(maxBlocksInView,2)))*200))
+    #newtimeout = 
 
     currentInstance = 0
     for node in nodes:
@@ -316,7 +332,9 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 server_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/server {currentInstance} {numFaults} {constFactor} {numViews} {newtimeout} {maxBlocksInView} {forceRecover} {byzantine}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                procsRep.append((currentInstance, instanceName, node, proc))
+                pid = get_singularity_pid(server_command)
+                pid = int(pid)
+                procsRep.append((currentInstance, instanceName, node, proc, pid))
                 print(f"Replica {currentInstance} started on {node['host']}")
                 instanceRepIds.append((currentInstance, instanceName, node))
             else:
@@ -325,7 +343,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 client_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{client_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                procsCl.append((currentInstance, instanceName, node, proc))
+                procsCl.append((currentInstance, instanceName, node, proc, 0))
                 print(f"Client {currentInstance} started on {node['host']}")
                 instanceClIds.append((currentInstance, instanceName, node))
             currentInstance += 1
@@ -349,27 +367,27 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
         if len(remaining) < 3*numFaults:
             # If any replicas are crashed when its time to record stats, recover them
             if events:
-                event_time, action, (n, instanceName, node_info, proc) = events.pop(0)
+                event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
                 #event_time, action, (t, i, p) = events.pop(0)
                 while action == "recover":
                     print("Recovering node: ",instanceName, " so it can record stats")
-                    recover_container(proc.pid, instanceName)
-                    event_time, action, (n, instanceName, node_info, proc) = events.pop(0)
+                    recover_container(pid,node_info, instanceName)
+                    event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
                 events.clear()
         
         if crash > 0 :
             while events and events[0][0] <= totalTime:
-                event_time, action, (n, instanceName, node_info, proc) = events.pop(0)
+                event_time, action, (n, instanceName, node_info, proc,pid) = events.pop(0)
                 if action == "crash":
-                    crash_container(proc.pid, instanceName)
+                    crash_container(pid,node_info, instanceName)
                 elif action == "recover":
-                    recover_container(proc.pid, instanceName)
+                    recover_container(pid, node_info,instanceName)
         
                 print(f"{action} node {i} at time {event_time}")
         
 
         for p in remaining.copy():
-            n, i, node, proc = p
+            n, i, node, proc, pid = p
             print_output(proc, i)
             if proc.poll() is not None:
                 print(f"Node {i} has completed")
@@ -385,7 +403,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
 
     print("All processes completed.")
     sys.stdout.flush()
-    for n, i, node, proc in procsRep.copy() + procsCl.copy():
+    for n, i, node, proc,pid in procsRep.copy() + procsCl.copy():
         if proc.poll() is None:
             print_output(proc, i)
             proc.terminate()

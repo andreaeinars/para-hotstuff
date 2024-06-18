@@ -182,38 +182,67 @@ experiments_delay = [
         }
     },
 ]
+experiments_byz_2 = [
+    {
+        "description": "xBlocks",
+        "protocol": "p3",
+        "params": {
+            "faults": "8,16",
+            "repeats": "1",
+            "views": "30",
+            "maxBlocksInView": "4,16",
+            "numTrans": "400",
+            "byzantine":"1",
+            "payload":"128",
+            "timeout": "200",
+        }
+    },
+]
 
 experiments_byz = [
     {
         "description": "xBlocks",
         "protocol": "p3",
         "params": {
-            "faults": "1",
+            "faults": "1,2,4,8,16",
             "repeats": "3",
             "views": "30",
-            "maxBlocksInView": "4,8,16,32,64,128,256",
+            "maxBlocksInView": "4,16",
             "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
-            "dir": "usable_stats/exp-new/byz-exp-blocks",
             "byzantine":"1",
+            "payload":"128",
+            "timeout": "2",
         }
     },
-    # {
-    #     "description": "xFaults",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1,2,4,8",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "32",
-    #         "numTrans": "400",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "byzantine":"1",
-    #         "dir": "usable_stats/exp-new/byz-exp-blocks",
-    #     }
-    # },
+    {
+        "description": "xFaults",
+        "protocol": "p3",
+        "params": {
+            "faults": "1,2,4,8,16",
+            "repeats": "3",
+            "views": "30",
+            "timeout": "3",
+            "maxBlocksInView": "4,16",
+            "numTrans": "400",
+            "byzantine":"1",
+            "payload":"128",
+        }
+    },
+    {
+        "description": "xFaults",
+        "protocol": "p3",
+        "params": {
+            "faults": "1,2,4,8,16",
+            "repeats": "3",
+            "views": "30",
+            "timeout": "4",
+            "maxBlocksInView": "4,16",
+            "numTrans": "400",
+            "byzantine":"1",
+            "payload":"128",
+        }
+    },
+
 ]
 
 experiments_crash = [
@@ -361,66 +390,13 @@ experiments_recover = [
 experiments_client = [
     {
         "description": "throughputxlat",
-        "protocol": "pall",
+        "protocol": "p2 --p3",
         "params": {
             "faults": "1",
             "repeats": "3",
-            "views": "60",
-            "numTrans": "400",
-            "maxBlocksInView": "16,32",
-            "netlat": "100",
-            "netvar": "100",
-            "dir": "usable_stats/exp-new/client-exp",
-            'numcltrans': '5000',
-            'sleeptime': '1000',
-        }
-    },
-    {
-        "description": "throughputxlat",
-        "protocol": "pall",
-        "params": {
-            "faults": "1",
-            "repeats": "3",
-            "views": "60",
-            "numTrans": "400",
-            "maxBlocksInView": "16,32",
-            "netlat": "100",
-            "netvar": "100",
-            "dir": "usable_stats/exp-new/client-exp",
-            'numcltrans': '5000',
-            'sleeptime': '700',
-        }
-    },
-    {
-        "description": "throughputxlat",
-        "protocol": "pall",
-        "params": {
-            "faults": "1",
-            "repeats": "3",
-            "views": "60",
-            "numTrans": "400",
-            "maxBlocksInView": "16,32",
-            "netlat": "100",
-            "netvar": "100",
-            "dir": "usable_stats/exp-new/client-exp",
-            'numcltrans': '5000',
-            'sleeptime': '400',
-        }
-    },
-    {
-        "description": "throughputxlat",
-        "protocol": "pall",
-        "params": {
-            "faults": "1",
-            "repeats": "3",
-            "views": "60",
-            "numTrans": "400",
-            "maxBlocksInView": "16,32",
-            "netlat": "100",
-            "netvar": "100",
-            "dir": "usable_stats/exp-new/client-exp",
-            'numcltrans': '5000',
-            'sleeptime': '100',
+            "numTrans": "100",
+            "payload":"128".
+            "maxBlocksInView": "8,16,32",
         }
     },
 ]
@@ -434,14 +410,14 @@ def run_experiment(description, protocol, params):
     subprocess.run(command, shell=True)
 
 # Run all experiments sequentially
-for experiment in experiments_control:
-    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+#for experiment in experiments_control:
+#    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
 # for experiment in experiments_delay:
 #     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
-# for experiment in experiments_byz:
-#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_byz_2:
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
 
 # for experiment in experiments_crash:
 #     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
