@@ -332,7 +332,10 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 ssh_command = f"ssh {node['user']}@{node['host']} '{server_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 pid = get_singularity_pid(server_command)
-                pid = int(pid)
+                try:
+                    pid = int(pid)
+                except:
+                    pass
                 procsRep.append((currentInstance, instanceName, node, proc, pid))
                 print(f"Replica {currentInstance} started on {node['host']}")
                 instanceRepIds.append((currentInstance, instanceName, node))
@@ -342,7 +345,12 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                 client_command = f"singularity exec {bind_app} {bind_config} {bind_stats} {sing_file} /app/App/client {currentInstance} {numFaults} {constFactor} {numClTrans} {sleepTime} {instance} {maxBlocksInView}"
                 ssh_command = f"ssh {node['user']}@{node['host']} '{client_command}'"
                 proc = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                procsCl.append((currentInstance, instanceName, node, proc, 0))
+                pid = get_singularity_pid(client_command)
+                try:
+                    pid = int(pid)
+                except:
+                    pass
+                procsCl.append((currentInstance, instanceName, node, proc, pid))
                 print(f"Client {currentInstance} started on {node['host']}")
                 instanceClIds.append((currentInstance, instanceName, node))
             currentInstance += 1
@@ -356,7 +364,7 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
         events = schedule_pauses_and_resumes(procsRep, cutOffBound, numFaults, crash)
 
     totalTime = 0
-    cutOffBound = 200
+    cutOffBound = 100
 
     if expmode == "TVL":
         remaining = procsCl.copy()
@@ -370,6 +378,9 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
                     print(f"Node {i} has completed")
                     sys.stdout.flush()
                     remaining.remove(p)
+            for p in procsRep.copy():
+                n, i, node, proc, pid = p
+                print_output(proc, i)
             time.sleep(1)
             totalTime += 1
     else:
@@ -412,25 +423,43 @@ def executeClusterInstances(nodes, numReps,numClients,protocol,constFactor,numCl
     if totalTime >= cutOffBound:
         print("Timeout reached. Terminating all processes.")
 
+    ports = " ".join(list(map(lambda port: str(port) + "/tcp", allLocalPorts)))
     print("All processes completed.")
     sys.stdout.flush()
     for n, i, node, proc,pid in procsRep.copy() + procsCl.copy():
         if proc.poll() is None:
             print_output(proc, i)
-            proc.terminate()
-            proc.wait()
+            print(f"Node {i} still alive, going to kill it, at host {node['host']}, with pid {pid}")
+            #proc.terminate()
+            kill_command = f"ssh {node['user']}@{node['host']} 'kill -9 {pid}'"
+            result = subprocess.run(kill_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            #if result.returncode != 0:
+            #    print(f"Failed to kill process {pid} on {node['host']}: {result.stderr.decode()}")
+            #else:
+            #    print(f"Successfully sent kill command for PID {pid} on {node['host']}")
+            #subprocess.run(kill_command, shell=True)
+            #proc.kill()
+            #proc.wait()
+            free_ports_command = f"ssh {node['user']}@{node['host']} 'fuser -k {ports}'"
+            result_ports = subprocess.run(free_ports_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            #if result_ports.returncode != 0:
+            #    print(f"Failed to free ports on {node['host']}: {result_ports.stderr.decode()}")
+            #else:
+            #     print(f"Successfully freed ports on {node['host']}")
             print(f"Cleanup: Forced termination at node {i}")
             sys.stdout.flush()
+        else:
+            print("Node not alive anymore.")
 
     return instanceRepIds, instanceClIds
 # # End of executeClusterInstances
 
-def printClientPoint(protocol,sleepTime,numFaults,throughput,latency,numPoints):
+def printClientPoint(protocol,sleepTime,numFaults,throughput,latency,numPoints,maxBlocksInView):
     f = open(clientsFile, 'a')
-    f.write("protocol="+protocol.value+" "+"sleep="+str(sleepTime)+" "+"faults="+str(numFaults)+" throughput="+str(throughput)+" latency="+str(latency)+" numPoints="+str(numPoints)+"\n")
+    f.write("protocol="+protocol.value+"-"+str(maxBlocksInView)+"BLOCKS"+" "+"sleep="+str(sleepTime)+" "+"faults="+str(numFaults)+" throughput="+str(throughput)+" latency="+str(latency)+" numPoints="+str(numPoints)+"\n")
     f.close()
 
-def computeClientStats(protocol,numClTrans,sleepTime,numFaults):
+def computeClientStats(protocol,numClTrans,sleepTime,numFaults,maxBlocksInView):
     throughputs = []
     latencies   = []
     numExecs  = []
@@ -493,12 +522,12 @@ def computeClientStats(protocol,numClTrans,sleepTime,numFaults):
     print(newlatencies)
 
     numPoints = l-(2*num)
-    printClientPoint(protocol,sleepTime,numFaults,throughput,latency,numPoints)
+    printClientPoint(protocol,sleepTime,numFaults,throughput,latency,numPoints,maxBlocksInView)
 # Enf of computeClientStats
 
 def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,maxBlocksInView=0,forceRecover=0,byzantine=-1):
     print("<<<<<<<<<<<<<<<<<<<<",
-          "protocol="+protocol.value,
+          "protocol="+protocol.value+"-"+str(maxBlocksInView)+"BLOCKS",
           ";payload="+str(payloadSize),
           "(factor="+str(constFactor)+")",
           "#faults="+str(numFaults),
@@ -517,7 +546,8 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
     subprocess.run(compile_command, shell=True)
 
     if expmode == "TVL":
-        sleepTimes = [2000,1500,1000,900,800,700,600,500,350,250,150,100,50,10,5,0]
+        sleepTimes = [900,700,500,400,350,300,250,200,150,100,75,50,30,10,5,0]
+        #sleepTimes = [2000]
         f = open(clientsFile, 'a')
         f.write("# transactions="+str(numClTrans)+" "+
                 "faults="+str(numFaults)+" "+
@@ -541,7 +571,7 @@ def executeCluster(nodes,protocol,constFactor,numClTrans,sleepTime,numViews,cutO
                 time.sleep(2)
                 executeClusterInstances(nodes, numReps, numClients, protocol, constFactor, numClTrans, sleepTime, numViews, cutOffBound, numFaults, i, maxBlocksInView, forceRecover, byzantine)
                 #execute(protocol,constFactor,numClTrans,sleepTime,numViews,cutOffBound,numFaults,i, maxBlocksInView)
-            computeClientStats(protocol,numClTrans,sleepTime,numFaults)
+            computeClientStats(protocol,numClTrans,sleepTime,numFaults,maxBlocksInView)
 
     else:
         # The rest of your logic for setting up and executing the experiment
@@ -689,6 +719,8 @@ if args.pall:
     # TODO: Set runPara to True when ready
     print("SUCCESSFULLY PARSED ARGUMENT - testing all protocols")
 
+if args.tvl:
+    expmode = "TVL"
 if args.cluster:
     print("lauching cluster experiment")
     runCluster()
