@@ -1,42 +1,15 @@
-# # # 3.
-# maxBlocksInView = [1,2,4,8,16]
-# repeats      = 3
-# numViews     = 20
-# payloadSize   = 0
-# numTrans      = 400
-
-
-# # # 4. 
-# size_of_payload = [0,64,128, 256, 512]
-# repeats      = 3
-# numViews     = 20
-# maxBlocksInView = [1,2,4,8]
-# numTrans      = 400
-
 import subprocess
 
 # Define the base command and common parameters
-base_command = "python3 exp_sing.py --cluster"
+base_local_command = "python3 expepriments.py --docker"
+base_cluster_command = "python3 experiments_cluster.py --cluster"
 
 # Define the experiments with their specific parameters
-experiments_control = [
-    #  {
-    #     "description": "100 trans",
-    #     "protocol": "pall",
-    #     "params": {
-    #         "faults": "1,2,4,8,16",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "1,4,8,16,32",
-    #         "numTrans": "400",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "dir": "usable_stats/exp-new/control-exp-faults",
-    #     }
-    # },
+experiments_block_sizes = [
     {
         "description": "vs blocks 0pl 100tx",
         "protocol": "p3",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1",
             "repeats": "5",
@@ -44,14 +17,12 @@ experiments_control = [
             "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "100",
             "payload": "0",
-            # "netlat": "100",
-            # "netvar": "100",
-            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
     {
         "description": "vs blocks 100 trans 128pl",
         "protocol": "p3",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1",
             "repeats": "5",
@@ -59,31 +30,12 @@ experiments_control = [
             "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "100",
             "payload": "128",
-            # "netlat": "100",
-            # "netvar": "100",
-            #"numcltrans": "1",
-            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
-    #{
-    #    "description": "vs blocks 255 payload 100tx",
-    #    "protocol": "p3",
-    #    "params": {
-    #        "faults": "1",
-    #        "repeats": "3",
-    #        "views": "30",
-    #        "maxBlocksInView": "1,4,8,16,32,64",
-    #        "numTrans": "100",
-            # "netlat": "100",
-            # "netvar": "100",
-     #       "payload": "256",
-            #"numcltrans": "1",
-            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
-      #  }
-    #},
         {
         "description": "vs blocks 0pl 400tx",
         "protocol": "p3",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1",
             "repeats": "5",
@@ -91,14 +43,12 @@ experiments_control = [
             "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "400",
             "payload": "0",
-            # "netlat": "100",
-            # "netvar": "100",
-            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
     {
         "description": "vs blocks 400tx 128pl",
         "protocol": "p3",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1",
             "repeats": "5",
@@ -106,45 +56,31 @@ experiments_control = [
             "maxBlocksInView": "1,4,8,16,32,64,128",
             "numTrans": "400",
             "payload": "128",
-            # "netlat": "100",
-            # "netvar": "100",
-            #"numcltrans": "1",
-            #"dir": "usable_stats/exp-new/control-exp-blocks-novar",
         }
     },
 ]
 
-experiments_sizes = [
+experiments_faults_sizes = [
     {
         "description": "vs blocks 0pl 100tx",
-        "protocol": "p2 --p3",
+        "protocol": "pall",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1,2,4,8,16",
-            "repeats": "4",
+            "repeats": "5",
             "views": "30",
             "maxBlocksInView": "8",
             "numTrans": "100",
             "payload": "0",
         }
     },
-      {
-        "description": "vs blocks 100 trans 64pl",
-        "protocol": "p2 --p3",
-        "params": {
-            "faults": "1,2,4,8,16",
-            "repeats": "4",
-            "views": "30",
-            "maxBlocksInView": "8",
-            "numTrans": "100",
-            "payload": "64",
-        }
-    },
     {
         "description": "vs blocks 100 trans 128pl",
-        "protocol": "p2 --p3",
+        "protocol": "pall",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1,2,4,8,16",
-            "repeats": "4",
+            "repeats": "5",
             "views": "30",
             "maxBlocksInView": "8",
             "numTrans": "100",
@@ -153,10 +89,11 @@ experiments_sizes = [
     },
         {
         "description": "vs blocks 256pl 100tx",
-        "protocol": "p2 --p3",
+        "protocol": "pall",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1,2,4,8,16",
-            "repeats": "4",
+            "repeats": "5",
             "views": "30",
             "maxBlocksInView": "8",
             "numTrans": "100",
@@ -165,78 +102,46 @@ experiments_sizes = [
     },
 ]
 
-
-experiments_delay = [
-     {
-        "description": "FIRST",
-        "protocol": "pall",
-        "params": {
-            "faults": "1,2,4,8,16",
-            "repeats": "3",
-            "views": "30",
-            "maxBlocksInView": "1,4,8,16,32",
-            "numTrans": "400",
-            "netlat": "100",
-            "netvar": "400",
-            "dir": "usable_stats/exp-new/delay-exp",
-        }
-    },
-]
-experiments_byz_2 = [
-    {
-        "description": "xBlocks",
-        "protocol": "p3",
-        "params": {
-            "faults": "8,16",
-            "repeats": "1",
-            "views": "30",
-            "maxBlocksInView": "4,16",
-            "numTrans": "400",
-            "byzantine":"1",
-            "payload":"128",
-            "timeout": "200",
-        }
-    },
-]
-
 experiments_byz = [
     {
-        "description": "xBlocks",
+        "description": "Normal",
         "protocol": "p3",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1,2,4,8,16",
             "repeats": "3",
             "views": "30",
-            "maxBlocksInView": "4,16",
+            "maxBlocksInView": "16",
             "numTrans": "400",
-            "byzantine":"1",
             "payload":"128",
-            "timeout": "2",
+            "timeout": "5",
         }
     },
     {
-        "description": "xFaults",
+        "description": "Byzantine smaller timeout", 
         "protocol": "p3",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1,2,4,8,16",
             "repeats": "3",
             "views": "30",
-            "timeout": "3",
-            "maxBlocksInView": "4,16",
+            "timeout": "1",
+            "maxBlocksInView": "16",
             "numTrans": "400",
             "byzantine":"1",
             "payload":"128",
         }
     },
     {
-        "description": "xFaults",
+        "description": "Byzantine higher timeout",
         "protocol": "p3",
+        "cmd": base_cluster_command,
         "params": {
             "faults": "1,2,4,8,16",
             "repeats": "3",
             "views": "30",
             "timeout": "4",
-            "maxBlocksInView": "4,16",
+            "maxBlocksInView": "16",
             "numTrans": "400",
             "byzantine":"1",
             "payload":"128",
@@ -246,24 +151,10 @@ experiments_byz = [
 ]
 
 experiments_crash = [
-    #  {
-    #     "description": "xBlocks",
-    #     "protocol": "p3",
-    #     "params": {
-    #         "faults": "1",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "4,8,16,32,64",
-    #         "numTrans": "400",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "dir": "usable_stats/exp-new/crash-exp-blocks",
-    #         "crash":"0.5",
-    #     }
-    # },
     {
         "description": "xFaults",
         "protocol": "p3",
+        "cmd": base_local_command,
         "params": {
             "faults": "1,2,4,8,16",
             "repeats": "5",
@@ -274,118 +165,86 @@ experiments_crash = [
             "netlat": "30",
             "netvar": "30",
             "payload": "128",
-            "dir": "usable_stats/exp-new/crash-exp-4",
             "crash":"0",
         }
     },
     {
         "description": "xFaults",
         "protocol": "p3",
+        "cmd": base_local_command,
         "params": {
             "faults": "1,2,4,8,16",
             "repeats": "5",
-            "views": "100",
             "timeout": "5",
+            "views": "100",
             "maxBlocksInView": "16",
             "numTrans": "400",
             "netlat": "30",
             "netvar": "30",
             "payload": "128",
-            "dir": "usable_stats/exp-new/crash-exp-4",
             "crash":"0.5",
         }
     },
     {
         "description": "SECOND",
         "protocol": "p3",
+        "cmd": base_local_command,
         "params": {
             "faults": "1,2,4,8,16",
             "repeats": "5",
-            "views": "100",
             "timeout": "5",
+            "views": "100",
             "maxBlocksInView": "16",
             "numTrans": "400",
             "netlat": "30",
             "netvar": "30",
             "payload": "128",
             "crash":"1",
-            "dir": "usable_stats/exp-new/crash-exp-4",
         }
-    }, # TODO: Finish crash experiments
+    },
 ]
 
 experiments_recover = [
       {
-        "description": "FIRST",
+        "description": "RECOVER 0",
+        "cmd": base_cluster_command,
         "protocol": "p3",
         "params": {
-            "faults": "4,8",
+            "faults": "1,2,4,8,16",
             "repeats": "3",
             "views": "30",
             "maxBlocksInView": "16",
             "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
+            "payload": "128",
             "forceRecover": "0",
-            "dir": "usable_stats/exp-new/recover-exp",
         }
     },
-    # {
-    #     "description": "SECOND",
-    #     "params": {
-    #         "faults": "1,2,4,8",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "16",
-    #         "numTrans": "400",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "forceRecover": "0.25",
-    #         "dir": "usable_stats/recover-exp-lat-2",
-    #     }
-    # },
     {
-        "description": "THIRD",
+        "description": "RECOVER 0.5",
+        "cmd": base_cluster_command,
         "protocol": "p3",
         "params": {
-            "faults": "1,2,4,8",
+            "faults": "1,2,4,8,16",
             "repeats": "3",
             "views": "30",
             "maxBlocksInView": "16",
             "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
+            "payload": "128",
             "forceRecover": "0.5",
-            "dir": "usable_stats/exp-new/recover-exp",
         }
     },
-    # {
-    #     "description": "FOURTH",
-    #     "params": {
-    #         "faults": "1,2,4,8",
-    #         "repeats": "3",
-    #         "views": "30",
-    #         "maxBlocksInView": "16",
-    #         "numTrans": "400",
-    #         "netlat": "100",
-    #         "netvar": "100",
-    #         "forceRecover": "0.75",
-    #         "dir": "usable_stats/recover-exp-lat-2",
-    #     }
-    # },
     {
-        "description": "FIFTH",
+        "description": "RECOVER 1",
+        "cmd": base_cluster_command,
         "protocol": "p3",
         "params": {
-            "faults": "1,2,4,8",
+            "faults": "1,2,4,8,16",
             "repeats": "3",
             "views": "30",
             "maxBlocksInView": "16",
             "numTrans": "400",
-            "netlat": "100",
-            "netvar": "100",
+            "payload": "128",
             "forceRecover": "1",
-            "dir": "usable_stats/exp-new/recover-exp",
         }
     },
 ]
@@ -393,6 +252,7 @@ experiments_recover = [
 experiments_client = [
     {
         "description": "throughputxlat",
+        "cmd": base_cluster_command,
         "protocol": "p2 --p3",
         "params": {
             "faults": "1",
@@ -405,32 +265,30 @@ experiments_client = [
 ]
 
 # Function to run an experiment
-def run_experiment(description, protocol, params):
-    command = base_command + f" --{protocol}"
+def run_experiment(description, protocol, params, cmd):
+    command = cmd + f" --{protocol}"
     for param, value in params.items():
         command += f" --{param} {value}"
     print(f"Running {description} with command: {command}")
     subprocess.run(command, shell=True)
 
 # Run all experiments sequentially
-#for experiment in experiments_control:
-#    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
-# for experiment in experiments_control:
-#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_block_sizes:
+   run_experiment(experiment["description"], experiment["protocol"], experiment["params"], experiment["cmd"])
 
-# for experiment in experiments_delay:
-#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_faults_sizes:
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"], experiment["cmd"])
 
-for experiment in experiments_byz_2:
-    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_byz:
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"], experiment["cmd"])
 
 for experiment in experiments_crash:
-    run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"], experiment["cmd"])
 
-# for experiment in experiments_recover:
-#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_recover:
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"], experiment["cmd"])
 
-# for experiment in experiments_client:
-#     run_experiment(experiment["description"], experiment["protocol"], experiment["params"])
+for experiment in experiments_client:
+    run_experiment(experiment["description"], experiment["protocol"], experiment["params"], experiment["cmd"])
 
 print("All experiments completed.")

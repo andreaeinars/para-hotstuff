@@ -32,7 +32,7 @@ runPara      = False
 plotView     = True   # to plot the numbers of handling messages + network
 plotHandle   = False  # to plot the numbers of just handling messages, without the network
 plotCrypto   = False  # to plot the numbers of do crypto
-debugPlot    = True #False  # to print debug info when plotting
+debugPlot    = False #False  # to print debug info when plotting
 showTitle    = True   # to print the title of the figure
 plotThroughput = True
 plotLatency  = True
@@ -88,8 +88,8 @@ sshOpt1  = "StrictHostKeyChecking=no"
 
 # Names
 basicHS   = "Basic HotStuff"
-chainedHS = "Chained HotStuff"
-paraHS    = "Parallel HotStuff"
+chainedHS = "Chained HS"
+paraHS    = "Para-HS (16 Blocks)"
 
 # Markers
 basicMRK   = "P"
@@ -98,12 +98,13 @@ paraMRK    = "s"
 
 # Line styles
 basicLS   = ":"
-chainedLS = ":"
-paraLS    = ":"
+chainedLS = "-"
+paraLS    = "-"
 
 # Markers
 basicCOL   = "#3fa4d8"
 chainedCOL = "#b2c324"
+paraCOL = "#3fa4d8"
 
 ## Docker parameters
 runDocker  = False      # to run the code within docker contrainers

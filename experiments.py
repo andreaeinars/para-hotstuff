@@ -13,7 +13,7 @@ import re
 import random 
 import json
 
-from exp_params import *
+from experpiments_params import *
 
 ## Code
 class Protocol(Enum):
@@ -918,11 +918,13 @@ def createTVLplot(cFile,instances):
                 TBase.append(throughput)
                 LBase.append(latency)
                 aBase.append(sleep)
-            if protVal == "CHAINED_BASELINE":
+            if "CHAINED_BASELINE" in protVal:
+            #if protVal == "CHAINED_BASELINE-0BLOCKS ":
                 TChBase.append(throughput)
                 LChBase.append(latency)
                 aChBase.append(sleep)
-            if protVal == "PARALLEL_HOTSTUFF":
+            if "PARALLEL_HOTSTUFF" in protVal:
+            #if protVal == "PARALLEL_HOTSTUFF-16BLOCKS":
                 TPara.append(throughput)
                 LPara.append(latency)
                 aPara.append(sleep)
@@ -936,6 +938,8 @@ def createTVLplot(cFile,instances):
 
     plt.cla()
     plt.clf()
+
+    plt.figure(figsize=(6, 4.5))
 
     ## Plotting
     print("plotting")
@@ -954,7 +958,7 @@ def createTVLplot(cFile,instances):
             plt.plot(TChBase, LChBase, color=chainedCOL, linewidth=LW, marker=chainedMRK, markersize=MS, linestyle=chainedLS, label=chainedHS)
     if plotPara:
         if len(TPara) > 0:
-            plt.plot(TPara, LPara, linewidth=LW, marker=paraMRK, markersize=MS, linestyle=paraLS, label=paraHS)
+            plt.plot(TPara, LPara, color=paraCOL, linewidth=LW, marker=paraMRK, markersize=MS, linestyle=paraLS, label=paraHS)
     if debugPlot:
         if plotBasic:
             for x,y,z in zip(TBase, LBase, aBase):
@@ -976,6 +980,8 @@ def createTVLplot(cFile,instances):
     if logScale:
         plt.yscale('log')
     #plt.yscale('log',base=2)
+   
+
 
     plt.savefig(tvlFile, bbox_inches='tight', pad_inches=0.05)
     print("plot is in", tvlFile)

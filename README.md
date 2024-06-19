@@ -1,6 +1,6 @@
 # Para-HotStuff
 
-Base code and instructions from DAMYSUS: Streamlined BFT Consensus Leveraging Trusted Components
+Base code and instructions from the thesis Enabling Parallel Voting in Streamlined Consensus Protocols 
 
 
 ## Installing
@@ -96,30 +96,59 @@ explained below:
 
 In addition, you can use the following options to change some of the parameters:
 - `--docker` to run the nodes within Docker containers
-- `--pall` is to run all protocols, instead you can use `--p1` up to `--p2`
+- `--pall` is to run all protocols, instead you can use `--p1` up to `--p3`
     - `--p1`: base protocol, i.e., HotStuff
     - `--p2`: chained base protocol, i.e., chained HotStuff
+    - `--p3`: sets runPara to True (new protocol, i.e., Parallel HotStuff)
+- `--repeats`: number of repeats per experiment (default: 0)
+- `--netlat`: network latency in ms (default: 0)
+- `--netvar`: variation of the network latency in ms (default: 0)
+- `--views`: number of views to run per experiment (default: 0)
+- `--faults`: the number of faults to test, separated by commas (e.g., 1,2,3,etc.) (default: "")
+- `--payload`: size of payloads in Bytes (default: 0)
+- `--maxBlocksInView`: maximum number of blocks in each view for Parallel HotStuff (default: "")
+- `--numTrans`: number of transactions per client (default: 100)
+- `--dir`: directory for stats (default: "stats")
+- `--forceRecover`: force recovery threshold (default: 0)
+- `--crash`: amount of crashes (default: 0)
+- `--byzantine`: number of Byzantine nodes (default: -1)
+- `--timeout`: timeout for leader change in seconds (default: 5)
+- `--numclients`: number of clients for basic protocol (default: 1)
+- `--numclientsch`: number of clients for chained protocol (default: 1)
+- `--sleeptime`: sleep time between transactions for clients in ms (default: 0)
+- `--numcltrans`: number of transactions per client (default: 0)    
 
 ### Examples
 
 For example, if you run:
 
-`python3 experiments.py --docker --p1 --p2`
+`python3 experiments.py --docker --pall`
 
 then you will run the replicas within Docker containers (`--docker`),
-test Basic HotStuff (`--p1`) and Chained HotStuff (`--p2`).
+test Basic HotStuff (`--p1`), Chained HotStuff (`--p2`) and Para HotStuff (`--p3`).
 
+### Recommended experiments
 
-# Acknowledgments
+There are multiple examples of experiments in the file experiments_script.py, including most of the ones that were run to get results in the thesis. 
+You can simply define the ones you want to run there, e.g. either include them all or comment out which you don't want to run, and then run:
 
-Jiangshan Yu was partially supported by the Australian Research Council
-(ARC) under project DE210100019.
+`python3 experiments_script.py`
+
+### Cluster
+
+It is also possible run the experiments on a cluster like DAS-5. In order to do so you first need to have Apptainer/Singularity installed. 
+Make sure you have already built the docker image, and then you can run:
+
+`apptainer build para-hotstuff.sif docker://para-hotstuff:latest`
+
+You might need to execute that command locally, and then copy it to the remote cluster, if you don't have admin privileges. 
+
+Then you can execute a command like the following to run on a cluster:
+
+`python3 experiments_cluster.py --cluster --pall`
 
 
 # Contact
 
-Feel free to contact any of the authors if you have questions:
-[Jeremie Decouchant](https://www.tudelft.nl/ewi/over-de-faculteit/afdelingen/software-technology/distributed-systems/people/jeremie-decouchant),
-David Kozhaya,
-[Vincent Rahli](https://www.cs.bham.ac.uk/~rahliv/),
-and [Jiangshan Yu](https://research.monash.edu/en/persons/jiangshan-yu).
+Feel free to contact the author if you have questions:
+[Andrea Einarsdóttir](andreaeinars@hotmail.com)

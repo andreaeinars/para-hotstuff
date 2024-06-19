@@ -1,8 +1,8 @@
-from exp_params import *
+from experpiments_params import *
 from datetime import datetime
 import subprocess
 from matplotlib import pyplot as plt
-from matplotlib.ticker import FuncFormatter, LogLocator, MaxNLocator, AutoMinorLocator, NullFormatter
+from matplotlib.ticker import FuncFormatter, LogLocator, MaxNLocator, AutoMinorLocator, NullFormatter,LogFormatter
 import numpy as np
 import os
 
@@ -14,8 +14,6 @@ labels = ['100 tx 0B', '100 tx, 128B','400 tx, 0B','400 tx, 128B','400 tx, 128B'
 #labels =['Byzantine']
 
 showYlabel   = True
-#maxBlocksInView = [1,2,5,10,15,20]
-#maxBlocksInView = [1,2,5,10,15,20,25,30,40]
 maxBlocksInView = [1,2,4,8,16,32,64,128]
 faults = [1]
 logScale = True
@@ -99,17 +97,16 @@ def createPlot(folderName, folder=False):
             
             # Filter out outliers
             filtered_val = [v for v in val if lower_bound <= v <= upper_bound]
-            
-            # Debug statements to verify filtering process
-            # print(f"Original values for {key}: {val}")
-            # print(f"Filtered values for {key}: {filtered_val}")
-            # print(f"Lower bound: {lower_bound}, Upper bound: {upper_bound}")
-            
+         
             if not filtered_val:
                 continue
     
             l = len(filtered_val)
-            m = l if quantileSize == 0 else l - 2 * (l // (100 // quantileSize))
+            if quantileSize > 0:
+                quantile_number = int((quantileSize / 100.0) * l)
+                filtered_val = np.sort(filtered_val)[quantile_number:-quantile_number]
+                m = len(filtered_val) 
+            
             s = sum(filtered_val)
             v = s / m if m > 0 else 0.0
             blocks.append(key)
@@ -125,6 +122,7 @@ def createPlot(folderName, folder=False):
     def extract_plot_data(metric):
         plot_data = {}
         for protocol in data_dict:
+            print(f"Protocol: {data_dict[protocol][metric]}")
             blocks, vals, nums = dict2lists(data_dict[protocol][metric], 20, True)
             plot_data[protocol] = (blocks, vals, nums)
         return plot_data
@@ -160,8 +158,6 @@ def createPlot(folderName, folder=False):
             ax.set(xlabel="Blocks in View")
         if logScale:
             ax.set_yscale('log')
-            # ax.yaxis.set_major_locator(LogLocator(base=10.0))
-            # ax.yaxis.set_minor_formatter(NullFormatter())  # No labels on minor ticks
         ax.set_xscale('log')
         if showLegend:
             ax.legend(fontsize='x-small')
@@ -169,9 +165,23 @@ def createPlot(folderName, folder=False):
         ax.set_xticks(maxBlocksInView)
         ax.set_xticklabels([str(x) for x in maxBlocksInView])
 
-        # ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0f}'.format(y)))
-        # ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
+        print("ylabel:", ylabel)
 
+        # To customize yticks
+
+        # if "Throughput" in ylabel:
+        #     print("Setting yticks for throughput")
+        #     ticks = [20,40,100,200,400]
+        #     ax.set_yticks(ticks)
+        #     ax.get_yaxis().set_major_formatter(LogFormatter())
+        #     ax.set_yticklabels([str(x) for x in ticks])
+
+        # if "Latency" in ylabel:
+        #     print("Setting yticks for lat")
+        #     ticks = [1,3,10,20]
+        #     ax.set_yticks(ticks)
+        #     ax.get_yaxis().set_major_formatter(LogFormatter())
+        #     ax.set_yticklabels([str(x) for x in ticks])
 
     # Plotting setup
     LW = 1  # linewidth
@@ -254,6 +264,5 @@ def createPlot(folderName, folder=False):
             print(f"couldn't display the plot using '{displayApp}'. Consider changing the 'displayApp' variable.")
 
     return {protocol: data_dict[protocol]["throughput-view"] for protocol in data_dict}
-
 
 createPlot("cluster_stats/blocks-exp-3", folder=True)
