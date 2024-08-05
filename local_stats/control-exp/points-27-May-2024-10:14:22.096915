@@ -1,0 +1,1 @@
+##params cpus=0 mem=0 lat=100 payload=0 repeats1=3 repeats2=1 views=30 regions=local netvar=100 numTrans=400

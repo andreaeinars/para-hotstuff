@@ -1,0 +1,45 @@
+# transactions=100000 faults=1 transactions=800 payload=128 cutoff=100 repeats=1 rates=[500, 400, 350, 300, 250, 200, 150, 100, 75, 50, 30, 10, 5, 0]
+protocol=BASIC_BASELINE-0BLOCKS sleep=500 faults=1 throughput=1.499857 latency=145.114031 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=400 faults=1 throughput=1.794709 latency=157.956954 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=350 faults=1 throughput=2.01542 latency=163.829325 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=300 faults=1 throughput=2.242827 latency=169.221653 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=250 faults=1 throughput=2.539218 latency=183.256811 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=200 faults=1 throughput=3.05937 latency=206.957345 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=150 faults=1 throughput=3.6868 latency=233.721266 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=100 faults=1 throughput=4.481312 latency=286.619926 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=75 faults=1 throughput=4.943687 latency=336.668764 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=50 faults=1 throughput=5.798008 latency=462.979837 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=30 faults=1 throughput=5.897629 latency=1464.931892 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=10 faults=1 throughput=5.863558 latency=2703.952633 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=5 faults=1 throughput=5.901405 latency=3017.053908 numPoints=1
+protocol=BASIC_BASELINE-0BLOCKS sleep=0 faults=1 throughput=5.879783 latency=3475.470142 numPoints=1
+# transactions=100000 faults=1 transactions=800 payload=128 cutoff=100 repeats=1 rates=[500, 400, 350, 300, 250, 200, 150, 100, 75, 50, 30, 10, 5, 0]
+protocol=CHAINED_BASELINE-0BLOCKS sleep=500 faults=1 throughput=1.505307 latency=186.090006 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=400 faults=1 throughput=1.793489 latency=196.083075 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=350 faults=1 throughput=1.992311 latency=208.333189 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=300 faults=1 throughput=2.242732 latency=279.930321 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=250 faults=1 throughput=2.529168 latency=320.114348 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=200 faults=1 throughput=3.021372 latency=708.18607 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=150 faults=1 throughput=3.610855 latency=788.590474 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=100 faults=1 throughput=3.898833 latency=2819.383929 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=75 faults=1 throughput=4.014213 latency=3047.137882 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=50 faults=1 throughput=3.994466 latency=4801.190635 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=30 faults=1 throughput=3.936375 latency=5774.97011 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=10 faults=1 throughput=3.867258 latency=7493.075996 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=5 faults=1 throughput=3.852111 latency=7797.001343 numPoints=1
+protocol=CHAINED_BASELINE-0BLOCKS sleep=0 faults=1 throughput=3.805307 latency=8502.056862 numPoints=1
+# transactions=100000 faults=1 transactions=100 payload=128 cutoff=100 repeats=1 rates=[500, 400, 350, 300, 250, 200, 150, 100, 75, 50, 30, 10, 5, 0]
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=500 faults=1 throughput=1.499948 latency=96.600646 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=400 faults=1 throughput=1.793984 latency=92.782764 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=350 faults=1 throughput=1.995241 latency=98.825343 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=300 faults=1 throughput=2.244847 latency=102.111545 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=250 faults=1 throughput=2.53455 latency=101.158729 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=200 faults=1 throughput=3.055159 latency=120.29544 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=150 faults=1 throughput=3.69277 latency=145.112958 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=100 faults=1 throughput=4.513421 latency=235.929002 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=75 faults=1 throughput=4.877841 latency=319.313797 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=50 faults=1 throughput=4.815806 latency=1997.019819 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=30 faults=1 throughput=4.817613 latency=3040.587702 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=10 faults=1 throughput=4.742672 latency=4631.102391 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=5 faults=1 throughput=4.882131 latency=4914.653522 numPoints=1
+protocol=PARALLEL_HOTSTUFF-8BLOCKS sleep=0 faults=1 throughput=5.141173 latency=4679.931209 numPoints=1
